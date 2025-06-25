@@ -1,4 +1,4 @@
-import { XRWorld } from 'metaverse/dist/XRWorld.js';
+import { XRWorld } from 'metaverse/dist/XRWorld';
 import { fetchData } from './data';
 import { parseSDF, parsePDB } from './utils';
 import * as THREE from 'three';
@@ -46,7 +46,7 @@ class Ligand extends XRWorld {
 
     private getColorForElement(element: string): string {
         const colors: Record<string, string> = {
-            H: 'white', C: 'gray', N: 'blue', O: 'red', F: 'green',
+            H: 'green', C: 'gray', N: 'blue', O: 'red', F: 'green',
             CL: 'green', BR: 'brown', I: 'purple', P: 'orange',
             S: 'yellow', FE: 'darkred', default: 'black',
         };
