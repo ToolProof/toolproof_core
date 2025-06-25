@@ -1,4 +1,4 @@
-import { XRWorld } from 'threebase/src/XRWorld';
+import { XRWorld } from 'metaverse/src/XRWorld';
 import { fetchData } from './data';
 import { parseSDF, parsePDB } from './utils';
 import * as THREE from 'three';
