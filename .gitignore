@@ -34,3 +34,5 @@ coverage/
 # === Optional: lockfiles ===
 # Only include one if you're using a specific package manager
 package-lock.json
+
+gcp-key.json
