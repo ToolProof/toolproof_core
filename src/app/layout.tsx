@@ -8,7 +8,7 @@ import type { Metadata } from 'next'
 import { getServerSession } from 'next-auth'
 
 export const metadata: Metadata = {
-  title: 'ToolProof Core',
+  title: 'ToolProof Webclient',
   description: '',
 }
 
