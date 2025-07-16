@@ -1,11 +1,11 @@
-'use client';
+import Workflow from '@/components/registrar/Workflow';
 
 
 export default function Home() {
 
     return (
         <div>
-            Registrar
+            <Workflow />
         </div>
     );
 }
