@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { _twoObjects as availableJobs } from '@/xr/worlds/toolproof/data';
 
-interface Job {
+interface Job { // ATTENTION: duplicated
     id: string;
     name: string;
     description: string;
@@ -78,7 +78,7 @@ export default function Workflow() {
             
             // Find matching outputs and inputs
             currentStep.job.outputs.forEach(output => {
-                if (nextStep.job.inputs.includes(output)) {
+                if (nextStep.job.inputs.includes(output)) { // ATTENTION: checking only next step inputs
                     connections.push({
                         from: currentStep.id,
                         to: nextStep.id,
