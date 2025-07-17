@@ -9,7 +9,7 @@ import { getServerSession } from 'next-auth'
 
 export const metadata: Metadata = {
   title: 'ToolProof',
-  description: 'a set of proof-based tools to integrate human and artificial intelligence',
+  description: 'a set of proof-based tools to integrate human and artificial intelligence', // ATTENTION
 }
 
 export default async function RootLayout({
