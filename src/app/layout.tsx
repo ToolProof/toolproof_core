@@ -8,8 +8,8 @@ import type { Metadata } from 'next'
 import { getServerSession } from 'next-auth'
 
 export const metadata: Metadata = {
-  title: 'ToolProof Webclient',
-  description: '',
+  title: 'ToolProof',
+  description: 'a set of proof-based tools to integrate human and artificial intelligence',
 }
 
 export default async function RootLayout({
