@@ -397,7 +397,7 @@ class Workflows extends XRWorld {
             const job = workflowStep.job;
             
             // Position workflow steps in a horizontal line based on their position
-            const x = workflowStep.position * stepSpacing;
+            const x = workflowStep.position * stepSpacing - 15; // ATTENTION: arbitrary offset to center
             const z = 0;
             const y = 0;
 
