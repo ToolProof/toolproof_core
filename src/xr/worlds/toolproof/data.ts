@@ -1,3 +1,4 @@
+import { availableJobs as _twoObjects } from '@/components/workflow-builder/mockJobs';
 import { v4 as uuidv4 } from 'uuid';
 
 interface DataObject {
@@ -5,28 +6,6 @@ interface DataObject {
     name: string;
     description: string;
 }
-
-interface Job extends DataObject {
-    inputs: string[];
-    outputs: string[];
-}
-
-export const _twoObjects: Job[] = [
-    {
-        id: uuidv4(),
-        name: 'generate_candidate',
-        description: 'Generates candidate ligand from an anchor ligand and a target receptor.',
-        inputs: ['anchor', 'target'],
-        outputs: ['candidate']
-    },
-    {
-        id: uuidv4(),
-        name: 'basic_docking_with_autodock',
-        description: 'A job to generate LangGraph graphs from Workflow specifications.',
-        inputs: ['candidate', 'target', 'box'],
-        outputs: ['docking', 'pose']
-    },
-];
 
 export const getData = (counts: { countZero: number, countOne: number, countTwo: number, countThree: number }): { zeroObjects: DataObject[], oneObjects: DataObject[], twoObjects: DataObject[], threeObjects: DataObject[] } => {
 

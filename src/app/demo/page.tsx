@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { ToolProof } from '@/xr/worlds/toolproof/ToolProof';
+import { Workflows } from '@/xr/worlds/workflows/Workflows';
 
 
 export default function Home() {
@@ -41,8 +42,11 @@ export default function Home() {
     const asyncWrapper = async () => {
       if (!containerRef.current) return;
 
-      const toolProof = new ToolProof(containerRef.current);
-      await toolProof.init();
+      /* const toolProof = new ToolProof(containerRef.current);
+      await toolProof.init(); */
+
+      const workflows = new Workflows(containerRef.current);
+      await workflows.init();
 
       // Cleanup on unmount
       return () => {

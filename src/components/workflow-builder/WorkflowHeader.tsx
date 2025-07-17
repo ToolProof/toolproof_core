@@ -2,6 +2,7 @@ interface WorkflowHeaderProps {
     workflowName: string;
     setWorkflowName: (name: string) => void;
     onExport: () => void;
+    onView3D: () => void;
     validationIssues: string[];
 }
 
@@ -9,6 +10,7 @@ export default function WorkflowHeader({
     workflowName, 
     setWorkflowName, 
     onExport, 
+    onView3D,
     validationIssues 
 }: WorkflowHeaderProps) {
     return (
@@ -28,6 +30,13 @@ export default function WorkflowHeader({
                     className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                     Export Workflow
+                </button>
+                <button
+                    onClick={onView3D}
+                    disabled={validationIssues.length > 0}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                    View 3D Scene
                 </button>
             </div>
             
