@@ -13,6 +13,7 @@ export default function WorkflowBuilder() {
     const [draggedJob, setDraggedJob] = useState<Job | null>(null);
     const [workflowName, setWorkflowName] = useState('');
     const [fakeStepInputs, setFakeStepInputs] = useState<FakeStepInputs>({});
+    const [show3D, setShow3D] = useState(false);
 
     // Dummy file options for the fake step selector
     const availableFiles = {
@@ -28,7 +29,8 @@ export default function WorkflowBuilder() {
         let workflowsInstance: Workflows | null = null;
 
         const asyncWrapper = async () => {
-            if (!containerRef.current) return;
+            // Only initialize when the 3D overlay is shown and container is available
+            if (!show3D || !containerRef.current || workflowSteps.length === 0) return;
 
             workflowsInstance = new Workflows(containerRef.current, workflowSteps);
             await workflowsInstance.init();
@@ -36,14 +38,14 @@ export default function WorkflowBuilder() {
 
         asyncWrapper();
 
-        // Cleanup on unmount
+        // Cleanup on unmount or when overlay closes
         return () => {
             if (workflowsInstance) {
                 workflowsInstance.cleanup();
             }
         };
 
-    }, [workflowSteps]);
+    }, [workflowSteps, show3D]); // Add show3D as dependency
 
     // Calculate required initial inputs and update fake steps
     useEffect(() => {
@@ -236,19 +238,17 @@ export default function WorkflowBuilder() {
 
     const validationIssues = validateWorkflow();
 
-    const [show3D, setShow3D] = useState(false);
-
     return (
         <div className="p-6 max-w-7xl mx-auto h-screen flex flex-col">
             <WorkflowHeader
                 workflowName={workflowName}
                 setWorkflowName={setWorkflowName}
                 onExport={exportWorkflow}
-                onView3D={() => setShow3D(true)}
+                onView3D={() => setShow3D(!show3D)}
                 validationIssues={validationIssues}
             />
 
-            <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                 <AvailableJobsPanel
                     jobs={availableJobs}
                     onDragStart={handleDragStart}
@@ -265,9 +265,7 @@ export default function WorkflowBuilder() {
                     onMoveStep={moveStep}
                     onRemoveStep={removeStep}
                 />
-
             </div>
-
             {/* Fullscreen 3D overlay */}
             {show3D && (
                 <div
@@ -285,7 +283,7 @@ export default function WorkflowBuilder() {
                         <div
                             ref={containerRef}
                             className="w-full h-full"
-                            style={{ maxWidth: '100vw', maxHeight: '100vh' }}
+                            style={{ maxWidth: '90vw', maxHeight: '90vh' }}
                         />
                     </div>
                 </div>

@@ -1,20 +1,21 @@
-import { getData, Job, WorkflowStep } from './data';
+import { Job, WorkflowStep } from './data';
 // import { XRWorld, TransientSelection } from 'metaverse/dist/XRWorld';
 import { XRWorld, TransientSelection } from '../../XRWorld';
 import * as THREE from 'three';
 
 
-interface JobWithMesh extends Job {
+interface WorkflowStepWithMesh extends WorkflowStep {
     mesh: THREE.Mesh;
 }
 
 class Workflows extends XRWorld {
-    private jobs: JobWithMesh[] = [];
+    private workflowSteps: WorkflowStepWithMesh[] = [];
     private lines: { innerSphereName: string, innerSphereId: string, outerSphereId: string }[] = [];
     private mouse: THREE.Vector2 = new THREE.Vector2();
     private mouseRaycaster: THREE.Raycaster = new THREE.Raycaster();
     private isMouseInteracting: boolean = false;
     private tooltip: HTMLDivElement | null = null;
+    private inputWorkflowSteps: WorkflowStep[];
 
     constructor(container: HTMLDivElement, workflowSteps: WorkflowStep[]) {
         super(container, {
@@ -27,6 +28,9 @@ class Workflows extends XRWorld {
             selectionBehavior: new TransientSelection(),
             recursiveRaycast: true // Enable recursive raycasting to find nested spheres
         });
+
+        // Store the input workflow steps
+        this.inputWorkflowSteps = workflowSteps;
 
         // Hide VR button since we're embedding in UI
         this.hideVRButton();
@@ -47,7 +51,7 @@ class Workflows extends XRWorld {
         if (vrButton) {
             vrButton.style.display = 'none';
         }
-        
+
         // Also check for any button with VR-related text
         const buttons = document.querySelectorAll('button');
         buttons.forEach(button => {
@@ -64,7 +68,7 @@ class Workflows extends XRWorld {
         canvas.style.height = '100%';
         canvas.style.display = 'block';
         canvas.style.position = 'relative'; // Ensure it's not absolutely positioned
-        
+
         // Make sure the container can contain the canvas properly
         container.style.position = 'relative';
         container.style.overflow = 'hidden';
@@ -128,9 +132,6 @@ class Workflows extends XRWorld {
     }
 
     async init() {
-        // Get the mock jobs data
-        const jobsData = getData();
-
         // Add some ambient and directional lighting to see the spheres better
         const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
         this.scene.add(ambientLight);
@@ -140,8 +141,8 @@ class Workflows extends XRWorld {
         directionalLight.castShadow = true;
         this.scene.add(directionalLight);
 
-        // Create spheres for each job
-        this.createJobSpheres(jobsData);
+        // Create spheres for each workflow step
+        this.createWorkflowVisualization(this.inputWorkflowSteps);
 
         // Position camera to get a good view of all circles
         this.camera.position.set(0, 20, 30);
@@ -149,8 +150,6 @@ class Workflows extends XRWorld {
     }
 
     override updateInteraction() {
-        return;
-
         // Skip parent's updateInteraction to avoid the old highlight method
         // Instead, manually do what the parent does but with custom highlighting
 
@@ -183,7 +182,7 @@ class Workflows extends XRWorld {
         // Debug logging
         console.log('selectedObject:', this.selectedObject);
         console.log('intersected:', this.intersected);
-        console.log('dataObjects count:', this.jobs.length);
+        console.log('dataObjects count:', this.workflowSteps.length);
         console.log('isMouseInteracting:', this.isMouseInteracting);
         console.log('VR Session:', this.renderer.xr.getSession());
 
@@ -201,17 +200,17 @@ class Workflows extends XRWorld {
             if (objectToDisplay.userData?.type === 'resource') {
                 // Handle job spheres
                 let found = false;
-                this.jobs.forEach((dataObject, index) => {
+                this.workflowSteps.forEach((dataObject, index) => {
                     const isMatch = dataObject.mesh === objectToDisplay;
                     if (index < 5 || isMatch) {
-                        console.log(`Checking dataObject ${index}:`, isMatch, dataObject.name,
+                        console.log(`Checking dataObject ${index}:`, isMatch, dataObject.job.name,
                             'meshId:', dataObject.mesh.id, 'objectId:', objectToDisplay?.id);
                     }
                     if (isMatch) {
                         console.log('Found matching dataObject:', dataObject);
-                        const displayText = dataObject.description
-                            ? `${dataObject.name}:\n${dataObject.description}`
-                            : `${dataObject.name}\n[No description available]`;
+                        const displayText = dataObject.job.description
+                            ? `${dataObject.job.name}:\n${dataObject.job.description}`
+                            : `${dataObject.job.name}\n[No description available]`;
                         this.showText(displayText);
                         found = true;
                         return;
@@ -228,18 +227,18 @@ class Workflows extends XRWorld {
                 // Handle input cylinders
                 const inputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const job = this.jobs.find(j => j.id === jobId);
-                const displayText = job
-                    ? `Input: ${inputName}\nJob: ${job.name}`
+                const workflowStep = this.workflowSteps.find(ws => ws.job.id === jobId);
+                const displayText = workflowStep
+                    ? `Input: ${inputName}\nJob: ${workflowStep.job.name}`
                     : `Input: ${inputName}`;
                 this.showText(displayText);
             } else if (objectToDisplay.userData?.type === 'output') {
                 // Handle output cylinders
                 const outputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const job = this.jobs.find(j => j.id === jobId);
-                const displayText = job
-                    ? `Output: ${outputName}\nJob: ${job.name}`
+                const workflowStep = this.workflowSteps.find(ws => ws.job.id === jobId);
+                const displayText = workflowStep
+                    ? `Output: ${outputName}\nJob: ${workflowStep.job.name}`
                     : `Output: ${outputName}`;
                 this.showText(displayText);
             }
@@ -284,7 +283,7 @@ class Workflows extends XRWorld {
             this.tooltip.parentNode.removeChild(this.tooltip);
             this.tooltip = null;
         }
-        
+
         // Also clean up VR button
         this.hideVRButton();
     }
@@ -388,16 +387,18 @@ class Workflows extends XRWorld {
         });
     }
 
-    private createJobSpheres(jobsData: Job[]) {
+    private createWorkflowVisualization(workflowStepsData: WorkflowStep[]) {
         const sphereRadius = 2;
         const cylinderRadius = 0.2;
         const cylinderLength = 3;
-        const jobSpacing = 15; // Space between jobs
+        const stepSpacing = 15; // Space between workflow steps
 
-        jobsData.forEach((job, index) => {
-            // Position jobs in a grid layout
-            const x = (index % 2) * jobSpacing - jobSpacing / 2;
-            const z = Math.floor(index / 2) * jobSpacing - jobSpacing;
+        workflowStepsData.forEach((workflowStep, index) => {
+            const job = workflowStep.job;
+            
+            // Position workflow steps in a horizontal line based on their position
+            const x = workflowStep.position * stepSpacing;
+            const z = 0;
             const y = 0;
 
             // Create main sphere for the job
@@ -415,14 +416,16 @@ class Workflows extends XRWorld {
                 type: 'resource',
                 name: job.name,
                 description: job.description,
-                jobId: job.id
+                jobId: job.id,
+                stepId: workflowStep.id,
+                position: workflowStep.position
             };
 
             this.scene.add(sphereMesh);
 
-            // Store the job with its mesh
-            this.jobs.push({
-                ...job,
+            // Store the workflow step with its mesh
+            this.workflowSteps.push({
+                ...workflowStep,
                 mesh: sphereMesh
             });
 
@@ -443,7 +446,9 @@ class Workflows extends XRWorld {
                 inputCylinder.userData = {
                     type: 'input',
                     name: input,
-                    jobId: job.id
+                    jobId: job.id,
+                    stepId: workflowStep.id,
+                    position: workflowStep.position
                 };
 
                 this.scene.add(inputCylinder);
@@ -466,12 +471,47 @@ class Workflows extends XRWorld {
                 outputCylinder.userData = {
                     type: 'output',
                     name: output,
-                    jobId: job.id
+                    jobId: job.id,
+                    stepId: workflowStep.id,
+                    position: workflowStep.position
                 };
 
                 this.scene.add(outputCylinder);
             });
         });
+
+        // Create connections between workflow steps (lines between outputs and inputs)
+        this.createWorkflowConnections(workflowStepsData);
+    }
+
+    private createWorkflowConnections(workflowStepsData: WorkflowStep[]) {
+        // For now, just connect consecutive workflow steps with simple lines
+        // In the future, this could be enhanced to show actual data flow connections
+        for (let i = 0; i < workflowStepsData.length - 1; i++) {
+            const currentStep = workflowStepsData[i];
+            const nextStep = workflowStepsData[i + 1];
+            
+            // Get the positions of the spheres
+            const currentPos = new THREE.Vector3(currentStep.position * 15, 0, 0);
+            const nextPos = new THREE.Vector3(nextStep.position * 15, 0, 0);
+            
+            // Create a line geometry between the spheres
+            const points = [
+                new THREE.Vector3(currentPos.x + 2, currentPos.y, currentPos.z), // Right edge of current sphere
+                new THREE.Vector3(nextPos.x - 2, nextPos.y, nextPos.z) // Left edge of next sphere
+            ];
+            
+            const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+            const lineMaterial = new THREE.LineBasicMaterial({ 
+                color: 0xffffff, 
+                linewidth: 2,
+                opacity: 0.7,
+                transparent: true
+            });
+            
+            const line = new THREE.Line(lineGeometry, lineMaterial);
+            this.scene.add(line);
+        }
     }
 
     private createCylinder(radius: number, height: number, color: number): THREE.Mesh {
