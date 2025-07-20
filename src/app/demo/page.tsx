@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { ToolProof } from '@/xr/worlds/toolproof/ToolProof';
 import { Workflows } from '@/xr/worlds/workflows/Workflows';
-import { mockJobs_1, mockJobs_2, mockJobs_3, generateWorkflows } from '@/components/workflow-builder/mockJobs';
+import { mockJobs_1, generateWorkflows } from '@/components/workflow-builder/mockJobs';
 
 
 export default function Home() {
@@ -46,8 +46,8 @@ export default function Home() {
       /* const toolProof = new ToolProof(containerRef.current);
       await toolProof.init(); */
 
-      const workflows = generateWorkflows(mockJobs_3);
-      console.log('workflows: ', workflows);
+      const workflows = generateWorkflows(mockJobs_1);
+      // console.log('workflows: ', workflows);
 
       const workflowsWorld = new Workflows(containerRef.current, workflows[0]);
       await workflowsWorld.init();

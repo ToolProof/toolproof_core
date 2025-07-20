@@ -1,24 +1,33 @@
 
-interface Concept {
+export interface Tool {
     id: string;
-    path: string;
-    name: string;
-    description: string;
-    tags: string[];
+    displayName: string;
 }
 
-export interface Job {
-    id: string;
-    name: string;
-    description?: string;
-    inputs: string[];
-    outputs: string[];
+export interface Concept extends Tool {
+    semanticSpec: {
+        description: string;
+        embedding: number[];
+    }
+}
+
+export interface ResourceType extends Concept {
+    syntacticSpec: {
+        format: string; // ATTENTION: prefer a set of predefined formats
+        schema: object | null; // JSON schema for validation
+    }
+}
+
+export interface Job extends Concept {
+    url: string;
+    syntacticSpec: {
+        inputs: ResourceType[];
+        outputs: ResourceType[];
+    }
 }
 
 export interface WorkflowNode {
-    id: string;
     job: Job;
-    position: number;
     isFakeStep?: boolean;
 }
 

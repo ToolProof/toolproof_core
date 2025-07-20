@@ -39,7 +39,7 @@ export default function WorkflowNodesPanel({
                 ) : (
                     <div className="space-y-4">
                         {workflowNodes.map((step, index) => (
-                            <div key={step.id} className="relative">
+                            <div key={step.job.id} className="relative">
                                 {step.isFakeStep ? (
                                     <FakeStepComponent
                                         job={step.job}
@@ -53,9 +53,9 @@ export default function WorkflowNodesPanel({
                                         stepNumber={index + 1}
                                         canMoveUp={index > 1}
                                         canMoveDown={index < workflowNodes.length - 1}
-                                        onMoveUp={() => onMoveStep(step.id, 'up')}
-                                        onMoveDown={() => onMoveStep(step.id, 'down')}
-                                        onRemove={() => onRemoveStep(step.id)}
+                                        onMoveUp={() => onMoveStep(step.job.id, 'up')}
+                                        onMoveDown={() => onMoveStep(step.job.id, 'down')}
+                                        onRemove={() => onRemoveStep(step.job.id)}
                                     />
                                 )}
                                 

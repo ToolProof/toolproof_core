@@ -1,9 +1,9 @@
 'use client';
-import { availableJobs, mockJobs_1 } from './mockJobs';
+import { mockJobs_1 } from './mockJobs';
 import { Job, WorkflowNode, FakeStepInputs } from './types';
 import WorkflowHeader from './WorkflowHeader';
 import AvailableJobsPanel from './AvailableJobsPanel';
-import WorkflowNodesPanel from './WorkflowNodesPanel';
+import WorkflowStepsPanel from './WorkflowStepsPanel';
 import { Workflows } from '@/xr/worlds/workflows/Workflows';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
@@ -25,6 +25,29 @@ export default function WorkflowBuilder() {
         pose: ['pose_1.pdb', 'pose_2.pdb']
     };
 
+    const getWorkflowConnections = useCallback(() => {
+        const connections: { from: string; to: string; output: string; input: string }[] = [];
+
+        for (let i = 0; i < workflowNodes.length - 1; i++) {
+            const currentStep = workflowNodes[i];
+            const nextStep = workflowNodes[i + 1];
+
+            // Find matching outputs and inputs
+            currentStep.job.syntacticSpec.outputs.forEach(output => {
+                if (nextStep.job.syntacticSpec.inputs.some(input => input.displayName === output.displayName)) {
+                    connections.push({
+                        from: currentStep.job.id,
+                        to: nextStep.job.id,
+                        output: output.displayName,
+                        input: output.displayName
+                    });
+                }
+            });
+        }
+
+        return connections;
+    }, [workflowNodes]);
+
     useEffect(() => {
         let workflowsInstance: Workflows | null = null;
 
@@ -32,7 +55,17 @@ export default function WorkflowBuilder() {
             // Only initialize when the 3D overlay is shown and container is available
             if (!show3D || !containerRef.current || workflowNodes.length === 0) return;
 
-            workflowsInstance = new Workflows(containerRef.current, workflowNodes);
+            // Create workflow structure with edges based on connections
+            const workflow = {
+                nodes: workflowNodes,
+                edges: getWorkflowConnections().map(connection => ({
+                    from: connection.from,
+                    to: connection.to,
+                    dataFlow: [connection.output]
+                }))
+            };
+
+            workflowsInstance = new Workflows(containerRef.current, workflow);
             await workflowsInstance.init();
         }
 
@@ -45,7 +78,7 @@ export default function WorkflowBuilder() {
             }
         };
 
-    }, [workflowNodes, show3D]); // Add show3D as dependency
+    }, [workflowNodes, show3D, getWorkflowConnections]); // Add show3D as dependency
 
     // Calculate required initial inputs and update fake steps
     useEffect(() => {
@@ -60,13 +93,13 @@ export default function WorkflowBuilder() {
         // Get all inputs required by all steps
         const allRequiredInputs = new Set<string>();
         realSteps.forEach(step => {
-            step.job.inputs.forEach(input => allRequiredInputs.add(input));
+            step.job.syntacticSpec.inputs.forEach(input => allRequiredInputs.add(input.displayName));
         });
 
         // Get all outputs produced by all steps
         const allProducedOutputs = new Set<string>();
         realSteps.forEach(step => {
-            step.job.outputs.forEach(output => allProducedOutputs.add(output));
+            step.job.syntacticSpec.outputs.forEach(output => allProducedOutputs.add(output.displayName));
         });
 
         // Missing inputs are those required but not produced
@@ -79,33 +112,67 @@ export default function WorkflowBuilder() {
             if (!hasFakeStep) {
                 // Create a fake step with missing inputs
                 const fakeStep: WorkflowNode = {
-                    id: 'fake-step',
                     job: {
                         id: 'fake-job',
-                        name: 'Initial Inputs',
-                        description: 'Upload required input files for the workflow',
-                        inputs: [],
-                        outputs: missingInputs
+                        displayName: 'Initial Inputs',
+                        semanticSpec: {
+                            description: 'Upload required input files for the workflow',
+                            embedding: []
+                        },
+                        syntacticSpec: {
+                            inputs: [],
+                            outputs: missingInputs.map(input => ({ 
+                                id: `fake-${input}`,
+                                displayName: input,
+                                semanticSpec: {
+                                    description: `Input file for ${input}`,
+                                    embedding: []
+                                },
+                                syntacticSpec: {
+                                    format: 'file',
+                                    schema: null
+                                }
+                            }))
+                        }
                     },
-                    position: 0,
                     isFakeStep: true
                 };
 
-                setWorkflowNodes(prev => [fakeStep, ...prev.filter(step => !step.isFakeStep).map((step, index) => ({ ...step, position: index + 1 }))]);
+                setWorkflowNodes(prev => [fakeStep, ...prev.filter(step => !step.isFakeStep)]);
             } else {
                 // Update existing fake step outputs if they changed
                 const currentFakeStep = workflowNodes.find(step => step.isFakeStep);
-                if (currentFakeStep && JSON.stringify(currentFakeStep.job.outputs.sort()) !== JSON.stringify(missingInputs.sort())) {
+                if (currentFakeStep && JSON.stringify(currentFakeStep.job.syntacticSpec.outputs.map(o => o.displayName).sort()) !== JSON.stringify(missingInputs.sort())) {
                     setWorkflowNodes(prev => prev.map(step =>
                         step.isFakeStep
-                            ? { ...step, job: { ...step.job, outputs: missingInputs } }
+                            ? { 
+                                ...step, 
+                                job: { 
+                                    ...step.job, 
+                                    syntacticSpec: {
+                                        ...step.job.syntacticSpec,
+                                        outputs: missingInputs.map(input => ({ 
+                                            id: `fake-${input}`,
+                                            displayName: input,
+                                            semanticSpec: {
+                                                description: `Input file for ${input}`,
+                                                embedding: []
+                                            },
+                                            syntacticSpec: {
+                                                format: 'file',
+                                                schema: null
+                                            }
+                                        }))
+                                    }
+                                } 
+                            }
                             : step
                     ));
                 }
             }
         } else {
             // Remove fake step if no missing inputs
-            setWorkflowNodes(prev => prev.filter(step => !step.isFakeStep).map((step, index) => ({ ...step, position: index })));
+            setWorkflowNodes(prev => prev.filter(step => !step.isFakeStep));
         }
     }, [workflowNodes]);
 
@@ -128,26 +195,24 @@ export default function WorkflowBuilder() {
         e.preventDefault();
         if (draggedJob) {
             const newStep: WorkflowNode = {
-                id: `step-${Date.now()}`,
-                job: draggedJob,
-                position: workflowNodes.length
+                job: draggedJob
             };
             setWorkflowNodes(prev => [...prev, newStep]);
         }
         setDraggedJob(null);
-    }, [draggedJob, workflowNodes.length]);
+    }, [draggedJob]);
 
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
     };
 
-    const removeStep = (stepId: string) => {
-        setWorkflowNodes(prev => prev.filter(step => step.id !== stepId && !step.isFakeStep).map((step, index) => ({ ...step, position: index })));
+    const removeStep = (jobId: string) => {
+        setWorkflowNodes(prev => prev.filter(step => step.job.id !== jobId && !step.isFakeStep));
     };
 
-    const moveStep = (stepId: string, direction: 'up' | 'down') => {
+    const moveStep = (jobId: string, direction: 'up' | 'down') => {
         setWorkflowNodes(prev => {
-            const currentIndex = prev.findIndex(step => step.id === stepId);
+            const currentIndex = prev.findIndex(step => step.job.id === jobId);
             if (currentIndex === -1) return prev;
 
             const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
@@ -156,34 +221,8 @@ export default function WorkflowBuilder() {
             const newSteps = [...prev];
             [newSteps[currentIndex], newSteps[newIndex]] = [newSteps[newIndex], newSteps[currentIndex]];
 
-            return newSteps.map((step, index) => ({
-                ...step,
-                position: index
-            }));
+            return newSteps;
         });
-    };
-
-    const getWorkflowConnections = () => {
-        const connections: { from: string; to: string; output: string; input: string }[] = [];
-
-        for (let i = 0; i < workflowNodes.length - 1; i++) {
-            const currentStep = workflowNodes[i];
-            const nextStep = workflowNodes[i + 1];
-
-            // Find matching outputs and inputs
-            currentStep.job.outputs.forEach(output => {
-                if (nextStep.job.inputs.includes(output)) { // ATTENTION: checking only next step inputs
-                    connections.push({
-                        from: currentStep.id,
-                        to: nextStep.id,
-                        output,
-                        input: output
-                    });
-                }
-            });
-        }
-
-        return connections;
     };
 
     const validateWorkflow = () => {
@@ -198,9 +237,9 @@ export default function WorkflowBuilder() {
         // Check if fake step has all required inputs selected
         const fakeStep = workflowNodes.find(step => step.isFakeStep);
         if (fakeStep) {
-            const missingSelections = fakeStep.job.outputs.filter(output => !fakeStepInputs[output]);
+            const missingSelections = fakeStep.job.syntacticSpec.outputs.filter(output => !fakeStepInputs[output.displayName]);
             if (missingSelections.length > 0) {
-                issues.push(`Please select files for: ${missingSelections.join(', ')}`);
+                issues.push(`Please select files for: ${missingSelections.map(o => o.displayName).join(', ')}`);
             }
         }
 
@@ -209,13 +248,13 @@ export default function WorkflowBuilder() {
             const prevStep = realSteps[i - 1];
             const currentStep = realSteps[i];
 
-            const hasMatchingInputs = currentStep.job.inputs.some(input =>
-                prevStep.job.outputs.includes(input)
+            const hasMatchingInputs = currentStep.job.syntacticSpec.inputs.some(input =>
+                prevStep.job.syntacticSpec.outputs.some(output => output.displayName === input.displayName)
             );
 
             if (!hasMatchingInputs) {
-                const realStepIndex = workflowNodes.findIndex(step => step.id === currentStep.id);
-                issues.push(`Step ${realStepIndex + 1} (${currentStep.job.name}) has no matching inputs from previous step`);
+                const realStepIndex = workflowNodes.findIndex(step => step.job.id === currentStep.job.id);
+                issues.push(`Step ${realStepIndex + 1} (${currentStep.job.displayName}) has no matching inputs from previous step`);
             }
         }
 
@@ -250,12 +289,12 @@ export default function WorkflowBuilder() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1 min-h-0">
                 <AvailableJobsPanel
-                    jobs={availableJobs}
+                    jobs={mockJobs_1}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                 />
 
-                <WorkflowNodesPanel
+                <WorkflowStepsPanel
                     workflowNodes={workflowNodes}
                     fakeStepInputs={fakeStepInputs}
                     availableFiles={availableFiles}
