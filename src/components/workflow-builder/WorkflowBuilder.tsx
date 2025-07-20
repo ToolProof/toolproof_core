@@ -1,5 +1,5 @@
 'use client';
-import { availableJobs, mockJobs } from './mockJobs';
+import { availableJobs, mockJobs_1 } from './mockJobs';
 import { Job, WorkflowNode, FakeStepInputs } from './types';
 import WorkflowHeader from './WorkflowHeader';
 import AvailableJobsPanel from './AvailableJobsPanel';

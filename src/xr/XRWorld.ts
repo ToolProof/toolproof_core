@@ -65,7 +65,7 @@ abstract class XRWorld extends World {
         config: Config
 
     ) {
-        super(container);
+        super(container, 'pink');
 
         this.config = config;
 

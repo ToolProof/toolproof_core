@@ -147,6 +147,72 @@ class Workflows extends XRWorld {
         // Position camera to get a good view of all workflow nodes
         this.camera.position.set(0, 20, 30);
         this.camera.lookAt(0, 0, 0);
+
+        // Start animation loop for lightning effects
+        this.startLightningAnimation();
+    }
+
+    private startLightningAnimation() {
+        const animateLightning = () => {
+            const currentTime = Date.now();
+            
+            // Animate all lightning connections
+            this.connectionObjects.forEach(connection => {
+                if (connection.userData?.type === 'lightning' && connection instanceof THREE.Group) {
+                    const elapsed = (currentTime - connection.userData.startTime) / 1000;
+                    const mainMaterial = connection.userData.mainMaterial;
+                    const glowMaterial = connection.userData.glowMaterial;
+                    
+                    // Create pulsing effect with random flickers
+                    const basePulse = 0.5 + 0.3 * Math.sin(elapsed * 4); // Base sine wave
+                    const flicker = Math.random() > 0.9 ? 0.3 : 0; // Random flicker
+                    const intensity = Math.min(1, basePulse + flicker);
+                    
+                    // Update material opacity
+                    mainMaterial.opacity = 0.4 + intensity * 0.6;
+                    glowMaterial.opacity = 0.1 + intensity * 0.4;
+                    
+                    // Occasionally regenerate lightning path for more dynamic effect
+                    if (Math.random() > 0.95) {
+                        this.regenerateLightningPath(connection);
+                    }
+                }
+            });
+            
+            requestAnimationFrame(animateLightning);
+        };
+        
+        animateLightning();
+    }
+
+    private regenerateLightningPath(lightningGroup: THREE.Group) {
+        const userData = lightningGroup.userData;
+        if (!userData || !userData.points) return;
+        
+        const startPos = userData.points[0];
+        const endPos = userData.points[userData.points.length - 1];
+        
+        let newPoints: THREE.Vector3[];
+        
+        if (userData.isLongDistance) {
+            // Regenerate routed path
+            newPoints = this.createRoutedPath(startPos, endPos);
+        } else {
+            // Regenerate direct path
+            newPoints = this.createDirectPath(startPos, endPos);
+        }
+        
+        // Update geometry for both lines in the group
+        lightningGroup.children.forEach(child => {
+            if (child instanceof THREE.Line) {
+                const newGeometry = new THREE.BufferGeometry().setFromPoints(newPoints);
+                child.geometry.dispose();
+                child.geometry = newGeometry;
+            }
+        });
+        
+        // Update stored points
+        userData.points = newPoints;
     }
 
     override updateInteraction() {
@@ -439,6 +505,70 @@ class Workflows extends XRWorld {
         return levels;
     }
 
+    private optimizeInputSocketOrder(job: { inputs: string[] }, workflowNode: WorkflowNode, workflow: Workflow): string[] {
+        // Create array of inputs with their source node positions
+        interface InputWithPosition {
+            inputName: string;
+            sourceY: number;
+            isFake: boolean;
+        }
+        
+        const inputsWithSourcePositions: InputWithPosition[] = job.inputs.map((inputName: string) => {
+            // Find the source node that produces this input
+            const sourceEdge = workflow.edges.find(edge => 
+                edge.to === workflowNode.id && edge.dataFlow.includes(inputName)
+            );
+            
+            if (!sourceEdge) {
+                // No source found (probably a fake step input), keep original position
+                return { 
+                    inputName, 
+                    sourceY: 0, // Default position for inputs without sources
+                    isFake: true 
+                };
+            }
+            
+            const sourceNode = workflow.nodes.find(node => node.id === sourceEdge.from);
+            if (!sourceNode) {
+                return { inputName, sourceY: 0, isFake: true };
+            }
+            
+            // Get the Y position of the source node
+            const executionLevels = this.calculateExecutionLevels(workflow);
+            const sourceLevel = executionLevels.get(sourceNode.id);
+            
+            if (!sourceLevel) {
+                return { inputName, sourceY: 0, isFake: true };
+            }
+            
+            // Calculate source node's Y position (same logic as in createWorkflowVisualization)
+            const nodesAtSourceLevel = Array.from(executionLevels.entries())
+                .filter(([_, nodeLevel]) => nodeLevel.level === sourceLevel.level)
+                .map(([nodeId, _]) => workflow.nodes.find(n => n.id === nodeId))
+                .filter((node): node is WorkflowNode => node !== undefined);
+            
+            const sourceIndexInLevel = nodesAtSourceLevel.findIndex(n => n.id === sourceNode.id);
+            const verticalSpacing = 8; // Same as in createWorkflowVisualization
+            const sourceY = (sourceIndexInLevel - (nodesAtSourceLevel.length - 1) / 2) * verticalSpacing;
+            
+            return { 
+                inputName, 
+                sourceY, 
+                isFake: false 
+            };
+        });
+        
+        // Sort inputs by their source Y position (top to bottom)
+        // Put fake inputs at the bottom
+        inputsWithSourcePositions.sort((a: InputWithPosition, b: InputWithPosition) => {
+            if (a.isFake && !b.isFake) return 1;  // Fake inputs go to bottom
+            if (!a.isFake && b.isFake) return -1; // Real inputs go to top
+            return a.sourceY - b.sourceY; // Sort by Y position (top to bottom)
+        });
+        
+        return inputsWithSourcePositions.map((item: InputWithPosition) => item.inputName);
+    }
+
     private createWorkflowVisualization(workflow: Workflow) {
         const sphereRadius = 2;
         const stubRadius = 0.15;
@@ -502,7 +632,10 @@ class Workflows extends XRWorld {
             });
 
             // Create input stubs (green cylinders on the left side)
-            job.inputs.forEach((input, inputIndex) => {
+            // Optimize input socket ordering based on source node positions to minimize crossings
+            const optimizedInputs = this.optimizeInputSocketOrder(job as { inputs: string[] }, workflowNode, workflow);
+            
+            optimizedInputs.forEach((input, inputIndex) => {
                 const inputStub = this.createCylinder(
                     stubRadius,
                     stubLength,
@@ -511,7 +644,7 @@ class Workflows extends XRWorld {
 
                 // Position input stubs linearly on the left side of the sphere
                 const stubVerticalSpacing = 0.8;
-                const totalInputs = job.inputs.length;
+                const totalInputs = optimizedInputs.length;
                 const inputY = y + (inputIndex - (totalInputs - 1) / 2) * stubVerticalSpacing;
                 const inputX = x - sphereRadius - stubLength / 2; // Attached to left side
                 const inputZ = z;
@@ -561,6 +694,197 @@ class Workflows extends XRWorld {
                 this.scene.add(outputStub);
             });
         });
+        
+        // Create animated connections between matching outputs and inputs
+        this.createAnimatedConnections(workflow);
+    }
+
+    private createAnimatedConnections(workflow: Workflow) {
+        // Clear any existing connection objects
+        this.connectionObjects.forEach(obj => {
+            this.scene.remove(obj);
+        });
+        this.connectionObjects = [];
+
+        // Create lightning connections for each edge
+        workflow.edges.forEach(edge => {
+            const fromNode = workflow.nodes.find(n => n.id === edge.from);
+            const toNode = workflow.nodes.find(n => n.id === edge.to);
+            
+            if (!fromNode || !toNode) return;
+
+            // Find the mesh objects for these nodes
+            const fromMesh = this.workflowNodes.find(wn => wn.id === fromNode.id)?.mesh;
+            const toMesh = this.workflowNodes.find(wn => wn.id === toNode.id)?.mesh;
+            
+            if (!fromMesh || !toMesh) return;
+
+            // Create lightning connection for each data flow
+            edge.dataFlow.forEach(dataName => {
+                // Find the specific output and input stubs
+                const outputIndex = fromNode.job.outputs.indexOf(dataName);
+                
+                // For input index, we need to use the optimized order, not the original
+                const optimizedInputs = this.optimizeInputSocketOrder(toNode.job as { inputs: string[] }, toNode, workflow);
+                const inputIndex = optimizedInputs.indexOf(dataName);
+                
+                if (outputIndex === -1 || inputIndex === -1) return;
+
+                // Calculate positions of the specific stubs
+                const fromPos = fromMesh.position.clone();
+                const toPos = toMesh.position.clone();
+                
+                // Adjust for stub positions
+                const sphereRadius = 2;
+                const stubLength = 0.8;
+                const stubVerticalSpacing = 0.8;
+                
+                // Output stub position (right side of from node)
+                const totalOutputs = fromNode.job.outputs.length;
+                const outputY = fromPos.y + (outputIndex - (totalOutputs - 1) / 2) * stubVerticalSpacing;
+                const outputPos = new THREE.Vector3(
+                    fromPos.x + sphereRadius + stubLength / 2,
+                    outputY,
+                    fromPos.z
+                );
+                
+                // Input stub position (left side of to node) - using optimized order
+                const totalInputs = optimizedInputs.length;
+                const inputY = toPos.y + (inputIndex - (totalInputs - 1) / 2) * stubVerticalSpacing;
+                const inputPos = new THREE.Vector3(
+                    toPos.x - sphereRadius - stubLength / 2,
+                    inputY,
+                    toPos.z
+                );
+
+                // Create lightning connection
+                const lightning = this.createLightningConnection(outputPos, inputPos, dataName);
+                this.scene.add(lightning);
+                this.connectionObjects.push(lightning);
+            });
+        });
+    }
+
+    private createLightningConnection(startPos: THREE.Vector3, endPos: THREE.Vector3, dataName: string): THREE.Group {
+        const group = new THREE.Group();
+        
+        // Calculate if this is a long-distance connection that needs routing
+        const distance = startPos.distanceTo(endPos);
+        const isLongDistance = distance > 30; // Threshold for long connections
+        
+        let points: THREE.Vector3[];
+        
+        if (isLongDistance) {
+            // Route long connections around the main workflow area
+            points = this.createRoutedPath(startPos, endPos);
+        } else {
+            // Use direct jagged path for short connections
+            points = this.createDirectPath(startPos, endPos);
+        }
+
+        // Create the lightning geometry
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        
+        // Create animated material that pulses
+        const material = new THREE.LineBasicMaterial({
+            color: isLongDistance ? 0xff8800 : 0x00ffff, // Orange for long routes, cyan for short
+            linewidth: 3,
+            transparent: true,
+            opacity: 0.8
+        });
+        
+        const lightning = new THREE.Line(geometry, material);
+        
+        // Add glow effect with additional thicker, more transparent line
+        const glowMaterial = new THREE.LineBasicMaterial({
+            color: isLongDistance ? 0xffaa44 : 0x88ffff,
+            linewidth: 8,
+            transparent: true,
+            opacity: 0.3
+        });
+        const glowLine = new THREE.Line(geometry.clone(), glowMaterial);
+        
+        group.add(lightning);
+        group.add(glowLine);
+        
+        // Store animation data
+        group.userData = {
+            type: 'lightning',
+            dataName: dataName,
+            startTime: Date.now(),
+            mainMaterial: material,
+            glowMaterial: glowMaterial,
+            points: points,
+            isLongDistance: isLongDistance
+        };
+        
+        return group;
+    }
+
+    private createDirectPath(startPos: THREE.Vector3, endPos: THREE.Vector3): THREE.Vector3[] {
+        const segments = 8;
+        const points: THREE.Vector3[] = [];
+        const direction = new THREE.Vector3().subVectors(endPos, startPos);
+        const distance = direction.length();
+        
+        // Add start point
+        points.push(startPos.clone());
+        
+        // Add jagged middle points
+        for (let i = 1; i < segments; i++) {
+            const t = i / segments;
+            const basePoint = new THREE.Vector3().lerpVectors(startPos, endPos, t);
+            
+            // Add random perpendicular offset for lightning effect
+            const perpendicular = new THREE.Vector3(-direction.y, direction.x, 0).normalize();
+            const zigzagAmount = (distance * 0.1) * (Math.random() - 0.5) * Math.sin(t * Math.PI * 3);
+            basePoint.add(perpendicular.multiplyScalar(zigzagAmount));
+            
+            points.push(basePoint);
+        }
+        
+        // Add end point
+        points.push(endPos.clone());
+        
+        return points;
+    }
+
+    private createRoutedPath(startPos: THREE.Vector3, endPos: THREE.Vector3): THREE.Vector3[] {
+        const points: THREE.Vector3[] = [];
+        
+        // Route the connection above or below the main workflow area
+        const routeAbove = startPos.y > 0; // Choose based on start position
+        const routingHeight = routeAbove ? 15 : -15; // Route 15 units above/below
+        
+        // Create waypoints for the routed path
+        points.push(startPos.clone());
+        
+        // Go up/down to routing level
+        const verticalPoint1 = new THREE.Vector3(startPos.x, routingHeight, startPos.z);
+        points.push(verticalPoint1);
+        
+        // Add some intermediate points along the routing level for lightning effect
+        const segments = Math.floor((endPos.x - startPos.x) / 15) + 1; // One segment per execution level
+        for (let i = 1; i < segments; i++) {
+            const t = i / segments;
+            const x = startPos.x + (endPos.x - startPos.x) * t;
+            const routingPoint = new THREE.Vector3(x, routingHeight, startPos.z);
+            
+            // Add small random offsets for lightning effect
+            routingPoint.y += (Math.random() - 0.5) * 2;
+            routingPoint.z += (Math.random() - 0.5) * 2;
+            
+            points.push(routingPoint);
+        }
+        
+        // Come back down to target level
+        const verticalPoint2 = new THREE.Vector3(endPos.x, routingHeight, endPos.z);
+        points.push(verticalPoint2);
+        
+        // Final connection to target
+        points.push(endPos.clone());
+        
+        return points;
     }
 
     private createCylinder(radius: number, height: number, color: number): THREE.Mesh {
