@@ -1,7 +1,7 @@
 import { mockJobs } from '@/components/workflow-builder/mockJobs';
-import { Job, WorkflowStep } from '@/components/workflow-builder/types';
+import { Job, WorkflowNode } from '@/components/workflow-builder/types';
 
-export type { Job, WorkflowStep };
+export type { Job, WorkflowNode };
 
 export const getData = () => {
 

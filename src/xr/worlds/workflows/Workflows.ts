@@ -1,23 +1,23 @@
-import { Job, WorkflowStep } from './data';
+import { Workflow, WorkflowNode, WorkflowEdge } from '@/components/workflow-builder/types';
 // import { XRWorld, TransientSelection } from 'metaverse/dist/XRWorld';
 import { XRWorld, TransientSelection } from '../../XRWorld';
 import * as THREE from 'three';
 
 
-interface WorkflowStepWithMesh extends WorkflowStep {
+interface WorkflowNodeWithMesh extends WorkflowNode {
     mesh: THREE.Mesh;
 }
 
 class Workflows extends XRWorld {
-    private workflowSteps: WorkflowStepWithMesh[] = [];
-    private lines: { innerSphereName: string, innerSphereId: string, outerSphereId: string }[] = [];
+    private workflowNodes: WorkflowNodeWithMesh[] = [];
+    private connectionLines: THREE.Line[] = [];
     private mouse: THREE.Vector2 = new THREE.Vector2();
     private mouseRaycaster: THREE.Raycaster = new THREE.Raycaster();
     private isMouseInteracting: boolean = false;
     private tooltip: HTMLDivElement | null = null;
-    private inputWorkflowSteps: WorkflowStep[];
+    private workflow: Workflow;
 
-    constructor(container: HTMLDivElement, workflowSteps: WorkflowStep[]) {
+    constructor(container: HTMLDivElement, workflow: Workflow) {
         super(container, {
             speedMultiplier: 5,
             rayColor: 'yellow',
@@ -29,8 +29,8 @@ class Workflows extends XRWorld {
             recursiveRaycast: true // Enable recursive raycasting to find nested spheres
         });
 
-        // Store the input workflow steps
-        this.inputWorkflowSteps = workflowSteps;
+        // Store the workflow
+        this.workflow = workflow;
 
         // Hide VR button since we're embedding in UI
         this.hideVRButton();
@@ -142,7 +142,7 @@ class Workflows extends XRWorld {
         this.scene.add(directionalLight);
 
         // Create spheres for each workflow step
-        this.createWorkflowVisualization(this.inputWorkflowSteps);
+        this.createWorkflowVisualization(this.workflow);
 
         // Position camera to get a good view of all circles
         this.camera.position.set(0, 20, 30);
@@ -180,34 +180,34 @@ class Workflows extends XRWorld {
         });
 
         // Debug logging
-        console.log('selectedObject:', this.selectedObject);
+        /* console.log('selectedObject:', this.selectedObject);
         console.log('intersected:', this.intersected);
-        console.log('dataObjects count:', this.workflowSteps.length);
+        console.log('dataObjects count:', this.workflowNodes.length);
         console.log('isMouseInteracting:', this.isMouseInteracting);
-        console.log('VR Session:', this.renderer.xr.getSession());
+        console.log('VR Session:', this.renderer.xr.getSession()); */
 
         // Show text for either selected object (VR/click) or intersected object (hover)
         const objectToDisplay = this.selectedObject || this.intersected;
 
         if (objectToDisplay) {
-            console.log('Display object userData:', objectToDisplay.userData);
+            /* console.log('Display object userData:', objectToDisplay.userData);
             console.log('Display object type:', objectToDisplay.type);
             console.log('Display object constructor:', objectToDisplay.constructor.name);
             console.log('Display object id:', objectToDisplay.id);
-            console.log('Looking for matching dataObject...');
+            console.log('Looking for matching dataObject...'); */
 
             // Handle different object types
             if (objectToDisplay.userData?.type === 'resource') {
                 // Handle job spheres
                 let found = false;
-                this.workflowSteps.forEach((dataObject, index) => {
+                this.workflowNodes.forEach((dataObject, index) => {
                     const isMatch = dataObject.mesh === objectToDisplay;
                     if (index < 5 || isMatch) {
-                        console.log(`Checking dataObject ${index}:`, isMatch, dataObject.job.name,
-                            'meshId:', dataObject.mesh.id, 'objectId:', objectToDisplay?.id);
+                        //console.log(`Checking dataObject ${index}:`, isMatch, dataObject.job.name,
+                        //    'meshId:', dataObject.mesh.id, 'objectId:', objectToDisplay?.id);
                     }
                     if (isMatch) {
-                        console.log('Found matching dataObject:', dataObject);
+                        //console.log('Found matching dataObject:', dataObject);
                         const displayText = dataObject.job.description
                             ? `${dataObject.job.name}:\n${dataObject.job.description}`
                             : `${dataObject.job.name}\n[No description available]`;
@@ -227,18 +227,18 @@ class Workflows extends XRWorld {
                 // Handle input cylinders
                 const inputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const workflowStep = this.workflowSteps.find(ws => ws.job.id === jobId);
-                const displayText = workflowStep
-                    ? `Input: ${inputName}\nJob: ${workflowStep.job.name}`
+                const workflowNode = this.workflowNodes.find(ws => ws.job.id === jobId);
+                const displayText = workflowNode
+                    ? `Input: ${inputName}\nJob: ${workflowNode.job.name}`
                     : `Input: ${inputName}`;
                 this.showText(displayText);
             } else if (objectToDisplay.userData?.type === 'output') {
                 // Handle output cylinders
                 const outputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const workflowStep = this.workflowSteps.find(ws => ws.job.id === jobId);
-                const displayText = workflowStep
-                    ? `Output: ${outputName}\nJob: ${workflowStep.job.name}`
+                const workflowNode = this.workflowNodes.find(ws => ws.job.id === jobId);
+                const displayText = workflowNode
+                    ? `Output: ${outputName}\nJob: ${workflowNode.job.name}`
                     : `Output: ${outputName}`;
                 this.showText(displayText);
             }
@@ -268,7 +268,7 @@ class Workflows extends XRWorld {
 
         this.tooltip.textContent = text;
         this.tooltip.style.display = 'block';
-        console.log('Tooltip showing:', text);
+        // console.log('Tooltip showing:', text);
     }
 
     private hideTooltip() {
@@ -387,24 +387,28 @@ class Workflows extends XRWorld {
         });
     }
 
-    private createWorkflowVisualization(workflowStepsData: WorkflowStep[]) {
+    private createWorkflowVisualization(workflow: Workflow) {
         const sphereRadius = 2;
         const cylinderRadius = 0.2;
         const cylinderLength = 3;
         const stepSpacing = 15; // Space between workflow steps
 
-        workflowStepsData.forEach((workflowStep, index) => {
-            const job = workflowStep.job;
-            
+        // Create visual nodes for each workflow node
+        workflow.nodes.forEach((workflowNode, index) => {
+            const job = workflowNode.job;
+
             // Position workflow steps in a horizontal line based on their position
-            const x = workflowStep.position * stepSpacing - 15; // ATTENTION: arbitrary offset to center
+            const x = workflowNode.position * stepSpacing - 15; // ATTENTION: arbitrary offset to center
             const z = 0;
             const y = 0;
 
             // Create main sphere for the job
             const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+            
+            // Use different colors for fake steps vs real jobs
+            const sphereColor = workflowNode.isFakeStep ? 0x888888 : 0x000000;
             const sphereMaterial = new THREE.MeshStandardMaterial({
-                color: 0x4287f5,
+                color: sphereColor,
                 metalness: 0.3,
                 roughness: 0.4
             });
@@ -417,15 +421,16 @@ class Workflows extends XRWorld {
                 name: job.name,
                 description: job.description,
                 jobId: job.id,
-                stepId: workflowStep.id,
-                position: workflowStep.position
+                stepId: workflowNode.id,
+                position: workflowNode.position,
+                isFakeStep: workflowNode.isFakeStep
             };
 
             this.scene.add(sphereMesh);
 
             // Store the workflow step with its mesh
-            this.workflowSteps.push({
-                ...workflowStep,
+            this.workflowNodes.push({
+                ...workflowNode,
                 mesh: sphereMesh
             });
 
@@ -447,8 +452,8 @@ class Workflows extends XRWorld {
                     type: 'input',
                     name: input,
                     jobId: job.id,
-                    stepId: workflowStep.id,
-                    position: workflowStep.position
+                    stepId: workflowNode.id,
+                    position: workflowNode.position
                 };
 
                 this.scene.add(inputCylinder);
@@ -472,45 +477,119 @@ class Workflows extends XRWorld {
                     type: 'output',
                     name: output,
                     jobId: job.id,
-                    stepId: workflowStep.id,
-                    position: workflowStep.position
+                    stepId: workflowNode.id,
+                    position: workflowNode.position
                 };
 
                 this.scene.add(outputCylinder);
             });
         });
 
-        // Create connections between workflow steps (lines between outputs and inputs)
-        this.createWorkflowConnections(workflowStepsData);
+        // Create connections based on the workflow edges
+        // this.createWorkflowConnections(workflow);
     }
 
-    private createWorkflowConnections(workflowStepsData: WorkflowStep[]) {
-        // For now, just connect consecutive workflow steps with simple lines
-        // In the future, this could be enhanced to show actual data flow connections
-        for (let i = 0; i < workflowStepsData.length - 1; i++) {
-            const currentStep = workflowStepsData[i];
-            const nextStep = workflowStepsData[i + 1];
-            
-            // Get the positions of the spheres
-            const currentPos = new THREE.Vector3(currentStep.position * 15, 0, 0);
-            const nextPos = new THREE.Vector3(nextStep.position * 15, 0, 0);
-            
-            // Create a line geometry between the spheres
-            const points = [
-                new THREE.Vector3(currentPos.x + 2, currentPos.y, currentPos.z), // Right edge of current sphere
-                new THREE.Vector3(nextPos.x - 2, nextPos.y, nextPos.z) // Left edge of next sphere
-            ];
-            
-            const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-            const lineMaterial = new THREE.LineBasicMaterial({ 
-                color: 0xffffff, 
-                linewidth: 2,
-                opacity: 0.7,
-                transparent: true
+    private createWorkflowConnections(workflow: Workflow) {
+        // Clear any existing connection lines
+        this.connectionLines.forEach(line => {
+            this.scene.remove(line);
+        });
+        this.connectionLines = [];
+
+        // Create connections based on workflow edges
+        workflow.edges.forEach(edge => {
+            // Find the source and target nodes
+            const fromNode = workflow.nodes.find(node => node.id === edge.from);
+            const toNode = workflow.nodes.find(node => node.id === edge.to);
+
+            if (!fromNode || !toNode) {
+                console.warn('Could not find nodes for edge:', edge);
+                return;
+            }
+
+            // Get the positions of the nodes (assuming stepSpacing = 15)
+            const stepSpacing = 15;
+            const fromPos = new THREE.Vector3(fromNode.position * stepSpacing - 15, 0, 0);
+            const toPos = new THREE.Vector3(toNode.position * stepSpacing - 15, 0, 0);
+
+            // Create connection lines for each data flow
+            edge.dataFlow.forEach((dataName, index) => {
+                // Calculate vertical offset for multiple data flows on the same edge
+                const verticalOffset = (index - (edge.dataFlow.length - 1) / 2) * 0.5;
+
+                // Create a curved line between the nodes
+                const curve = new THREE.QuadraticBezierCurve3(
+                    new THREE.Vector3(fromPos.x + 2, fromPos.y + verticalOffset, fromPos.z), // Right edge of source
+                    new THREE.Vector3((fromPos.x + toPos.x) / 2, fromPos.y + verticalOffset + 3, fromPos.z), // Control point (curved upward)
+                    new THREE.Vector3(toPos.x - 2, toPos.y + verticalOffset, toPos.z) // Left edge of target
+                );
+
+                const points = curve.getPoints(50);
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+                
+                // Use different colors for different types of data
+                let lineColor = 0xffffff;
+                if (dataName.includes('alpha') || dataName.includes('beta')) {
+                    lineColor = 0x00ff00; // Green for primary inputs
+                } else if (dataName.includes('prime')) {
+                    lineColor = 0x0066ff; // Blue for secondary inputs
+                } else if (dataName.includes('final')) {
+                    lineColor = 0xff6600; // Orange for final outputs
+                }
+
+                const lineMaterial = new THREE.LineBasicMaterial({
+                    color: lineColor,
+                    linewidth: 2,
+                    opacity: 0.8,
+                    transparent: true
+                });
+
+                const line = new THREE.Line(lineGeometry, lineMaterial);
+                
+                // Add metadata to the line for interaction
+                line.userData = {
+                    type: 'connection',
+                    from: edge.from,
+                    to: edge.to,
+                    dataName: dataName,
+                    fromNode: fromNode.job.name,
+                    toNode: toNode.job.name
+                };
+
+                this.scene.add(line);
+                this.connectionLines.push(line);
             });
-            
-            const line = new THREE.Line(lineGeometry, lineMaterial);
-            this.scene.add(line);
+        });
+
+        // If no edges are defined, fall back to simple sequential connections
+        if (workflow.edges.length === 0) {
+            for (let i = 0; i < workflow.nodes.length - 1; i++) {
+                const currentStep = workflow.nodes[i];
+                const nextStep = workflow.nodes[i + 1];
+
+                // Get the positions of the spheres
+                const stepSpacing = 15;
+                const currentPos = new THREE.Vector3(currentStep.position * stepSpacing - 15, 0, 0);
+                const nextPos = new THREE.Vector3(nextStep.position * stepSpacing - 15, 0, 0);
+
+                // Create a simple straight line between the spheres
+                const points = [
+                    new THREE.Vector3(currentPos.x + 2, currentPos.y, currentPos.z), // Right edge of current sphere
+                    new THREE.Vector3(nextPos.x - 2, nextPos.y, nextPos.z) // Left edge of next sphere
+                ];
+
+                const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
+                const lineMaterial = new THREE.LineBasicMaterial({
+                    color: 0xffffff,
+                    linewidth: 2,
+                    opacity: 0.7,
+                    transparent: true
+                });
+
+                const line = new THREE.Line(lineGeometry, lineMaterial);
+                this.scene.add(line);
+                this.connectionLines.push(line);
+            }
         }
     }
 
