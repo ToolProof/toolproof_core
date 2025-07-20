@@ -10,7 +10,7 @@ interface WorkflowNodeWithMesh extends WorkflowNode {
 
 class Workflows extends XRWorld {
     private workflowNodes: WorkflowNodeWithMesh[] = [];
-    private connectionLines: THREE.Line[] = [];
+    private connectionObjects: THREE.Object3D[] = []; // Changed to handle any 3D object
     private mouse: THREE.Vector2 = new THREE.Vector2();
     private mouseRaycaster: THREE.Raycaster = new THREE.Raycaster();
     private isMouseInteracting: boolean = false;
@@ -141,10 +141,10 @@ class Workflows extends XRWorld {
         directionalLight.castShadow = true;
         this.scene.add(directionalLight);
 
-        // Create spheres for each workflow step
+        // Create spheres with stubs for each workflow step
         this.createWorkflowVisualization(this.workflow);
 
-        // Position camera to get a good view of all circles
+        // Position camera to get a good view of all workflow nodes
         this.camera.position.set(0, 20, 30);
         this.camera.lookAt(0, 0, 0);
     }
@@ -387,68 +387,140 @@ class Workflows extends XRWorld {
         });
     }
 
+    private calculateExecutionLevels(workflow: Workflow): Map<string, { level: number }> {
+        const levels = new Map<string, { level: number }>();
+        const visited = new Set<string>();
+        const processing = new Set<string>();
+
+        // Helper function to calculate the maximum dependency level for a node
+        const calculateLevel = (nodeId: string): number => {
+            if (processing.has(nodeId)) {
+                // Circular dependency detected, treat as level 0
+                return 0;
+            }
+            
+            if (visited.has(nodeId)) {
+                return levels.get(nodeId)?.level || 0;
+            }
+
+            processing.add(nodeId);
+            
+            // Find all edges that lead TO this node (dependencies)
+            const incomingEdges = workflow.edges.filter(edge => edge.to === nodeId);
+            
+            if (incomingEdges.length === 0) {
+                // No dependencies, this is a starting node (level 0)
+                levels.set(nodeId, { level: 0 });
+                visited.add(nodeId);
+                processing.delete(nodeId);
+                return 0;
+            }
+
+            // Calculate the maximum level of all dependencies + 1
+            let maxDependencyLevel = -1;
+            for (const edge of incomingEdges) {
+                const dependencyLevel = calculateLevel(edge.from);
+                maxDependencyLevel = Math.max(maxDependencyLevel, dependencyLevel);
+            }
+
+            const nodeLevel = maxDependencyLevel + 1;
+            levels.set(nodeId, { level: nodeLevel });
+            visited.add(nodeId);
+            processing.delete(nodeId);
+            
+            return nodeLevel;
+        };
+
+        // Calculate levels for all nodes
+        workflow.nodes.forEach(node => {
+            calculateLevel(node.id);
+        });
+
+        return levels;
+    }
+
     private createWorkflowVisualization(workflow: Workflow) {
         const sphereRadius = 2;
-        const cylinderRadius = 0.2;
-        const cylinderLength = 3;
-        const stepSpacing = 15; // Space between workflow steps
+        const stubRadius = 0.15;
+        const stubLength = 0.8;
+        const horizontalSpacing = 15; // Space between execution levels
+        const verticalSpacing = 8; // Space between parallel nodes
+
+        // Calculate execution levels for parallel visualization
+        const executionLevels = this.calculateExecutionLevels(workflow);
 
         // Create visual nodes for each workflow node
         workflow.nodes.forEach((workflowNode, index) => {
             const job = workflowNode.job;
 
-            // Position workflow steps in a horizontal line based on their position
-            const x = workflowNode.position * stepSpacing - 15; // ATTENTION: arbitrary offset to center
-            const z = 0;
-            const y = 0;
+            // Get the execution level and position within that level
+            const level = executionLevels.get(workflowNode.id);
+            if (level === undefined) return;
 
-            // Create main sphere for the job
+            const nodesAtLevel = Array.from(executionLevels.entries())
+                .filter(([_, nodeLevel]) => nodeLevel.level === level.level)
+                .map(([nodeId, _]) => workflow.nodes.find(n => n.id === nodeId))
+                .filter((node): node is WorkflowNode => node !== undefined);
+
+            const indexInLevel = nodesAtLevel.findIndex(n => n.id === workflowNode.id);
+
+            // Position nodes: X = execution level, Y = position within level
+            const x = level.level * horizontalSpacing - 15; // Horizontal position based on execution level
+            const z = 0;
+            const y = (indexInLevel - (nodesAtLevel.length - 1) / 2) * verticalSpacing; // Vertical spread for parallel nodes
+
+            // Create main sphere for the job (simple sphere without holes)
             const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
-            
-            // Use different colors for fake steps vs real jobs
-            const sphereColor = workflowNode.isFakeStep ? 0x888888 : 0x000000;
             const sphereMaterial = new THREE.MeshStandardMaterial({
-                color: sphereColor,
+                color: workflowNode.isFakeStep ? 0x888888 : 0x000000,
                 metalness: 0.3,
                 roughness: 0.4
             });
-            const sphereMesh = new THREE.Mesh(sphereGeometry, sphereMaterial);
-            sphereMesh.position.set(x, y, z);
+            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+            
+            sphere.position.set(x, y, z);
 
             // Set userData for interaction
-            sphereMesh.userData = {
+            sphere.userData = {
                 type: 'resource',
                 name: job.name,
                 description: job.description,
                 jobId: job.id,
                 stepId: workflowNode.id,
                 position: workflowNode.position,
-                isFakeStep: workflowNode.isFakeStep
+                isFakeStep: workflowNode.isFakeStep,
+                executionLevel: level.level,
+                parallelIndex: indexInLevel
             };
 
-            this.scene.add(sphereMesh);
+            this.scene.add(sphere);
 
             // Store the workflow step with its mesh
             this.workflowNodes.push({
                 ...workflowNode,
-                mesh: sphereMesh
+                mesh: sphere
             });
 
-            // Create input cylinders (coming from the left)
+            // Create input stubs (green cylinders on the left side)
             job.inputs.forEach((input, inputIndex) => {
-                const inputCylinder = this.createCylinder(
-                    cylinderRadius,
-                    cylinderLength,
-                    0x42f554 // Green color for inputs
+                const inputStub = this.createCylinder(
+                    stubRadius,
+                    stubLength,
+                    0x00ff00 // Green color for inputs
                 );
 
-                // Position cylinder to the left of the sphere
-                const inputY = y + (inputIndex - (job.inputs.length - 1) / 2) * 1.5;
-                inputCylinder.position.set(x - sphereRadius - cylinderLength / 2, inputY, z);
-                inputCylinder.rotation.z = Math.PI / 2; // Rotate to horizontal
+                // Position input stubs linearly on the left side of the sphere
+                const stubVerticalSpacing = 0.8;
+                const totalInputs = job.inputs.length;
+                const inputY = y + (inputIndex - (totalInputs - 1) / 2) * stubVerticalSpacing;
+                const inputX = x - sphereRadius - stubLength / 2; // Attached to left side
+                const inputZ = z;
+                
+                inputStub.position.set(inputX, inputY, inputZ);
+                inputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
 
                 // Set userData for the input
-                inputCylinder.userData = {
+                inputStub.userData = {
                     type: 'input',
                     name: input,
                     jobId: job.id,
@@ -456,24 +528,29 @@ class Workflows extends XRWorld {
                     position: workflowNode.position
                 };
 
-                this.scene.add(inputCylinder);
+                this.scene.add(inputStub);
             });
 
-            // Create output cylinders (going to the right)
+            // Create output stubs (red cylinders on the right side)
             job.outputs.forEach((output, outputIndex) => {
-                const outputCylinder = this.createCylinder(
-                    cylinderRadius,
-                    cylinderLength,
-                    0xf54242 // Red color for outputs
+                const outputStub = this.createCylinder(
+                    stubRadius,
+                    stubLength,
+                    0xff0000 // Red color for outputs
                 );
 
-                // Position cylinder to the right of the sphere
-                const outputY = y + (outputIndex - (job.outputs.length - 1) / 2) * 1.5;
-                outputCylinder.position.set(x + sphereRadius + cylinderLength / 2, outputY, z);
-                outputCylinder.rotation.z = Math.PI / 2; // Rotate to horizontal
+                // Position output stubs linearly on the right side of the sphere
+                const stubVerticalSpacing = 0.8;
+                const totalOutputs = job.outputs.length;
+                const outputY = y + (outputIndex - (totalOutputs - 1) / 2) * stubVerticalSpacing;
+                const outputX = x + sphereRadius + stubLength / 2; // Attached to right side
+                const outputZ = z;
+                
+                outputStub.position.set(outputX, outputY, outputZ);
+                outputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
 
                 // Set userData for the output
-                outputCylinder.userData = {
+                outputStub.userData = {
                     type: 'output',
                     name: output,
                     jobId: job.id,
@@ -481,116 +558,9 @@ class Workflows extends XRWorld {
                     position: workflowNode.position
                 };
 
-                this.scene.add(outputCylinder);
+                this.scene.add(outputStub);
             });
         });
-
-        // Create connections based on the workflow edges
-        // this.createWorkflowConnections(workflow);
-    }
-
-    private createWorkflowConnections(workflow: Workflow) {
-        // Clear any existing connection lines
-        this.connectionLines.forEach(line => {
-            this.scene.remove(line);
-        });
-        this.connectionLines = [];
-
-        // Create connections based on workflow edges
-        workflow.edges.forEach(edge => {
-            // Find the source and target nodes
-            const fromNode = workflow.nodes.find(node => node.id === edge.from);
-            const toNode = workflow.nodes.find(node => node.id === edge.to);
-
-            if (!fromNode || !toNode) {
-                console.warn('Could not find nodes for edge:', edge);
-                return;
-            }
-
-            // Get the positions of the nodes (assuming stepSpacing = 15)
-            const stepSpacing = 15;
-            const fromPos = new THREE.Vector3(fromNode.position * stepSpacing - 15, 0, 0);
-            const toPos = new THREE.Vector3(toNode.position * stepSpacing - 15, 0, 0);
-
-            // Create connection lines for each data flow
-            edge.dataFlow.forEach((dataName, index) => {
-                // Calculate vertical offset for multiple data flows on the same edge
-                const verticalOffset = (index - (edge.dataFlow.length - 1) / 2) * 0.5;
-
-                // Create a curved line between the nodes
-                const curve = new THREE.QuadraticBezierCurve3(
-                    new THREE.Vector3(fromPos.x + 2, fromPos.y + verticalOffset, fromPos.z), // Right edge of source
-                    new THREE.Vector3((fromPos.x + toPos.x) / 2, fromPos.y + verticalOffset + 3, fromPos.z), // Control point (curved upward)
-                    new THREE.Vector3(toPos.x - 2, toPos.y + verticalOffset, toPos.z) // Left edge of target
-                );
-
-                const points = curve.getPoints(50);
-                const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-                
-                // Use different colors for different types of data
-                let lineColor = 0xffffff;
-                if (dataName.includes('alpha') || dataName.includes('beta')) {
-                    lineColor = 0x00ff00; // Green for primary inputs
-                } else if (dataName.includes('prime')) {
-                    lineColor = 0x0066ff; // Blue for secondary inputs
-                } else if (dataName.includes('final')) {
-                    lineColor = 0xff6600; // Orange for final outputs
-                }
-
-                const lineMaterial = new THREE.LineBasicMaterial({
-                    color: lineColor,
-                    linewidth: 2,
-                    opacity: 0.8,
-                    transparent: true
-                });
-
-                const line = new THREE.Line(lineGeometry, lineMaterial);
-                
-                // Add metadata to the line for interaction
-                line.userData = {
-                    type: 'connection',
-                    from: edge.from,
-                    to: edge.to,
-                    dataName: dataName,
-                    fromNode: fromNode.job.name,
-                    toNode: toNode.job.name
-                };
-
-                this.scene.add(line);
-                this.connectionLines.push(line);
-            });
-        });
-
-        // If no edges are defined, fall back to simple sequential connections
-        if (workflow.edges.length === 0) {
-            for (let i = 0; i < workflow.nodes.length - 1; i++) {
-                const currentStep = workflow.nodes[i];
-                const nextStep = workflow.nodes[i + 1];
-
-                // Get the positions of the spheres
-                const stepSpacing = 15;
-                const currentPos = new THREE.Vector3(currentStep.position * stepSpacing - 15, 0, 0);
-                const nextPos = new THREE.Vector3(nextStep.position * stepSpacing - 15, 0, 0);
-
-                // Create a simple straight line between the spheres
-                const points = [
-                    new THREE.Vector3(currentPos.x + 2, currentPos.y, currentPos.z), // Right edge of current sphere
-                    new THREE.Vector3(nextPos.x - 2, nextPos.y, nextPos.z) // Left edge of next sphere
-                ];
-
-                const lineGeometry = new THREE.BufferGeometry().setFromPoints(points);
-                const lineMaterial = new THREE.LineBasicMaterial({
-                    color: 0xffffff,
-                    linewidth: 2,
-                    opacity: 0.7,
-                    transparent: true
-                });
-
-                const line = new THREE.Line(lineGeometry, lineMaterial);
-                this.scene.add(line);
-                this.connectionLines.push(line);
-            }
-        }
     }
 
     private createCylinder(radius: number, height: number, color: number): THREE.Mesh {
