@@ -279,17 +279,6 @@ export function generateWorkflows(jobs: Job[]): Workflow[] {
     const workflows: Workflow[] = [];
     const usedJobs = new Set<string>();
     
-    // Helper to check if two jobs are chainable (outputs of first match inputs of second)
-    const areChainable = (fromJob: Job, toJob: Job): string[] => {
-        const matchingOutputs: string[] = [];
-        for (const input of toJob.syntacticSpec.inputs) {
-            if (fromJob.syntacticSpec.outputs.some(output => output.displayName === input.displayName)) {
-                matchingOutputs.push(input.displayName);
-            }
-        }
-        return matchingOutputs;
-    };
-    
     // Find all jobs that can start a workflow (no dependencies or all dependencies are external)
     const findStarterJobs = (remainingJobs: Job[]): Job[] => {
         return remainingJobs.filter(job => {
