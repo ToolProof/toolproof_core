@@ -47,6 +47,7 @@ export default function Home() {
       await toolProof.init(); */
 
       const workflows = generateWorkflows(mockJobs_1);
+      // ATTENTION_RONAK: see the shape of workflows in the console
       console.log('workflows: ', workflows);
 
       const workflowsWorld = new Workflows(containerRef.current, workflows[0]);

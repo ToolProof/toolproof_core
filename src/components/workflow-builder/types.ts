@@ -41,6 +41,9 @@ export interface WorkflowEdge {
     dataFlow: string[]; // The specific outputs from 'from' that become inputs to 'to'
 }
 
+// ATTENTION_RONAK: This is the shape of a workflow
+// Can you try to generata a graph (like Ligandokreado.ts) that uses NodeHigh for each job?
+// Also, can you see if you can upgrade NodeHigh (in TS) to support parallel execution?
 export interface Workflow {
     nodes: WorkflowNode[];
     edges: WorkflowEdge[];
