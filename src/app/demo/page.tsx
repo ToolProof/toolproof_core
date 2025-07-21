@@ -47,7 +47,7 @@ export default function Home() {
       await toolProof.init(); */
 
       const workflows = generateWorkflows(mockJobs_1);
-      // console.log('workflows: ', workflows);
+      console.log('workflows: ', workflows);
 
       const workflowsWorld = new Workflows(containerRef.current, workflows[0]);
       await workflowsWorld.init();

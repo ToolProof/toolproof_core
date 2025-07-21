@@ -7,7 +7,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_1',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_1',
         semanticSpec: {
             description: 'Initial data processing',
             embedding: []
@@ -20,7 +20,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_2',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_2',
         semanticSpec: {
             description: 'Transform gamma data',
             embedding: []
@@ -33,7 +33,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_3',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_3',
         semanticSpec: {
             description: 'Process delta stream',
             embedding: []
@@ -46,7 +46,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_4',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_4',
         semanticSpec: {
             description: 'Process epsilon stream',
             embedding: []
@@ -59,7 +59,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_5',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_5',
         semanticSpec: {
             description: 'Combine zeta and eta',
             embedding: []
@@ -72,7 +72,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_6',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_6',
         semanticSpec: {
             description: 'Transform theta data',
             embedding: []
@@ -85,7 +85,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_7',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_7',
         semanticSpec: {
             description: 'Process iota with kappa',
             embedding: []
@@ -98,7 +98,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_8',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_8',
         semanticSpec: {
             description: 'Lambda transformation',
             embedding: []
@@ -111,7 +111,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_9',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_9',
         semanticSpec: {
             description: 'Mu analysis',
             embedding: []
@@ -124,7 +124,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_10',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_10',
         semanticSpec: {
             description: 'Nu and xi combination',
             embedding: []
@@ -137,7 +137,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_11',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_11',
         semanticSpec: {
             description: 'Omicron processing',
             embedding: []
@@ -150,7 +150,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_12',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_12',
         semanticSpec: {
             description: 'Pi enhancement',
             embedding: []
@@ -163,7 +163,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_13',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_13',
         semanticSpec: {
             description: 'Rho transformation',
             embedding: []
@@ -176,7 +176,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_14',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_14',
         semanticSpec: {
             description: 'Sigma and tau merge',
             embedding: []
@@ -189,7 +189,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_15',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_15',
         semanticSpec: {
             description: 'Upsilon analysis',
             embedding: []
@@ -202,7 +202,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_16',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_16',
         semanticSpec: {
             description: 'Phi processing',
             embedding: []
@@ -215,7 +215,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_17',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_17',
         semanticSpec: {
             description: 'Chi and psi combination',
             embedding: []
@@ -228,7 +228,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_18',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_18',
         semanticSpec: {
             description: 'Independent alpha generator',
             embedding: []
@@ -241,7 +241,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_19',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_19',
         semanticSpec: {
             description: 'Alpha prime enhancement',
             embedding: []
@@ -254,7 +254,7 @@ export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
         displayName: 'job_20',
-        url: 'https://dummy-url.com',
+        url: 'https://dummy-url.com/job_20',
         semanticSpec: {
             description: 'Final omega processing',
             embedding: []
