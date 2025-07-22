@@ -6,15 +6,15 @@ import { RT } from './resourceTypeRegistry';
 export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
-        displayName: 'job_1',
-        url: 'https://dummy-url.com/job_1',
+        displayName: 'add_1',
+        url: 'https://dummy-url.com/add_1',
         semanticSpec: {
             description: 'Initial data processing',
             embedding: []
         },
         syntacticSpec: {
-            inputs: [RT('alpha'), RT('beta')],
-            outputs: [RT('gamma')]
+            inputs: [RT('number'), RT('number')],
+            outputs: [RT('number')]
         }
     },
     {
