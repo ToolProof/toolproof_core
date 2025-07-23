@@ -6,10 +6,10 @@ import { RT } from './resourceTypeRegistry';
 export const mockJobs_1: Job[] = [
     {
         id: uuidv4(),
-        displayName: 'add_1',
-        url: 'https://dummy-url.com/add_1',
+        displayName: 'add_numbers',
+        url: 'https://dummy-url.com/add_numbers',
         semanticSpec: {
-            description: 'Initial data processing',
+            description: 'Add two numbers together.',
             embedding: []
         },
         syntacticSpec: {
@@ -19,251 +19,43 @@ export const mockJobs_1: Job[] = [
     },
     {
         id: uuidv4(),
-        displayName: 'job_2',
-        url: 'https://dummy-url.com/job_2',
+        displayName: 'subtract_numbers',
+        url: 'https://dummy-url.com/subtract_numbers',
         semanticSpec: {
-            description: 'Transform gamma data',
+            description: 'Subtract one number from another.',
             embedding: []
         },
         syntacticSpec: {
-            inputs: [RT('gamma')],
-            outputs: [RT('delta'), RT('epsilon')]
+            inputs: [RT('number'), RT('number')],
+            outputs: [RT('number')]
         }
     },
     {
         id: uuidv4(),
-        displayName: 'job_3',
-        url: 'https://dummy-url.com/job_3',
+        displayName: 'multiply_numbers',
+        url: 'https://dummy-url.com/multiply_numbers',
         semanticSpec: {
-            description: 'Process delta stream',
+            description: 'Multiply two numbers together.',
             embedding: []
         },
         syntacticSpec: {
-            inputs: [RT('delta')],
-            outputs: [RT('zeta')]
+            inputs: [RT('number'), RT('number')],
+            outputs: [RT('number')]
         }
     },
     {
         id: uuidv4(),
-        displayName: 'job_4',
-        url: 'https://dummy-url.com/job_4',
+        displayName: 'divide_numbers',
+        url: 'https://dummy-url.com/divide_numbers',
         semanticSpec: {
-            description: 'Process epsilon stream',
+            description: 'Divide one number by another.',
             embedding: []
         },
         syntacticSpec: {
-            inputs: [RT('epsilon')],
-            outputs: [RT('eta'), RT('theta')]
+            inputs: [RT('number'), RT('character')],
+            outputs: [RT('number')]
         }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_5',
-        url: 'https://dummy-url.com/job_5',
-        semanticSpec: {
-            description: 'Combine zeta and eta',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('zeta'), RT('eta')],
-            outputs: [RT('iota')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_6',
-        url: 'https://dummy-url.com/job_6',
-        semanticSpec: {
-            description: 'Transform theta data',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('theta')],
-            outputs: [RT('kappa'), RT('lambda')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_7',
-        url: 'https://dummy-url.com/job_7',
-        semanticSpec: {
-            description: 'Process iota with kappa',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('iota'), RT('kappa')],
-            outputs: [RT('mu')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_8',
-        url: 'https://dummy-url.com/job_8',
-        semanticSpec: {
-            description: 'Lambda transformation',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('lambda')],
-            outputs: [RT('nu'), RT('xi')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_9',
-        url: 'https://dummy-url.com/job_9',
-        semanticSpec: {
-            description: 'Mu analysis',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('mu')],
-            outputs: [RT('omicron')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_10',
-        url: 'https://dummy-url.com/job_10',
-        semanticSpec: {
-            description: 'Nu and xi combination',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('nu'), RT('xi')],
-            outputs: [RT('pi'), RT('rho')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_11',
-        url: 'https://dummy-url.com/job_11',
-        semanticSpec: {
-            description: 'Omicron processing',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('omicron')],
-            outputs: [RT('sigma')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_12',
-        url: 'https://dummy-url.com/job_12',
-        semanticSpec: {
-            description: 'Pi enhancement',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('pi')],
-            outputs: [RT('tau')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_13',
-        url: 'https://dummy-url.com/job_13',
-        semanticSpec: {
-            description: 'Rho transformation',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('rho')],
-            outputs: [RT('upsilon')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_14',
-        url: 'https://dummy-url.com/job_14',
-        semanticSpec: {
-            description: 'Sigma and tau merge',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('sigma'), RT('tau')],
-            outputs: [RT('phi')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_15',
-        url: 'https://dummy-url.com/job_15',
-        semanticSpec: {
-            description: 'Upsilon analysis',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('upsilon')],
-            outputs: [RT('chi')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_16',
-        url: 'https://dummy-url.com/job_16',
-        semanticSpec: {
-            description: 'Phi processing',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('phi')],
-            outputs: [RT('psi')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_17',
-        url: 'https://dummy-url.com/job_17',
-        semanticSpec: {
-            description: 'Chi and psi combination',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('chi'), RT('psi')],
-            outputs: [RT('omega')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_18',
-        url: 'https://dummy-url.com/job_18',
-        semanticSpec: {
-            description: 'Independent alpha generator',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [],
-            outputs: [RT('alpha_prime')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_19',
-        url: 'https://dummy-url.com/job_19',
-        semanticSpec: {
-            description: 'Alpha prime enhancement',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('alpha_prime')],
-            outputs: [RT('beta_prime')]
-        }
-    },
-    {
-        id: uuidv4(),
-        displayName: 'job_20',
-        url: 'https://dummy-url.com/job_20',
-        semanticSpec: {
-            description: 'Final omega processing',
-            embedding: []
-        },
-        syntacticSpec: {
-            inputs: [RT('omega'), RT('beta_prime')],
-            outputs: [RT('omega_prime')]
-        }
-    },
+    }
 ]
 
 
@@ -273,7 +65,7 @@ export const mockJobs_1: Job[] = [
  * Automatically inserts fake steps for inputs that haven't been produced by earlier jobs.
  * 
  * @param jobs Array of jobs to create workflows from
- * @returns Array of workflows, where each workflow is a graph with steps and edges
+ * @returns Array of workflows, where each workflow is a graph with nodes and edges
  */
 export function generateWorkflows(jobs: Job[]): Workflow[] {
     const workflows: Workflow[] = [];
