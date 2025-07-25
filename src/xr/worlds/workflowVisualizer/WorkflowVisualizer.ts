@@ -1,4 +1,4 @@
-import { Workflow, WorkflowNode, WorkflowEdge, Concept, Job, ResourceType } from '@/components/workflow-builder/types';
+import { Workflow, WorkflowNode, Job, ResourceType } from 'updohilo/dist/types';
 // import { XRWorld, TransientSelection } from 'metaverse/dist/XRWorld';
 import { XRWorld, TransientSelection } from '../../XRWorld';
 import * as THREE from 'three';
@@ -9,7 +9,7 @@ interface WorkflowNodeWithMesh extends WorkflowNode {
 }
 
 class WorkflowVisualizer extends XRWorld {
-    private workflowNodes: WorkflowNodeWithMesh[] = [];
+    private nodes: WorkflowNodeWithMesh[] = [];
     private connectionObjects: THREE.Object3D[] = []; // Changed to handle any 3D object
     private mouse: THREE.Vector2 = new THREE.Vector2();
     private mouseRaycaster: THREE.Raycaster = new THREE.Raycaster();
@@ -248,7 +248,7 @@ class WorkflowVisualizer extends XRWorld {
         // Debug logging
         /* console.log('selectedObject:', this.selectedObject);
         console.log('intersected:', this.intersected);
-        console.log('dataObjects count:', this.workflowNodes.length);
+        console.log('dataObjects count:', this.nodes.length);
         console.log('isMouseInteracting:', this.isMouseInteracting);
         console.log('VR Session:', this.renderer.xr.getSession()); */
 
@@ -266,7 +266,7 @@ class WorkflowVisualizer extends XRWorld {
             if (objectToDisplay.userData?.type === 'resource') {
                 // Handle job spheres
                 let found = false;
-                this.workflowNodes.forEach((dataObject, index) => {
+                this.nodes.forEach((dataObject, index) => {
                     const isMatch = dataObject.mesh === objectToDisplay;
                     if (index < 5 || isMatch) {
                         //console.log(`Checking dataObject ${index}:`, isMatch, dataObject.job.name,
@@ -293,18 +293,18 @@ class WorkflowVisualizer extends XRWorld {
                 // Handle input cylinders
                 const inputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const workflowNode = this.workflowNodes.find(ws => ws.job.id === jobId);
-                const displayText = workflowNode
-                    ? `Input: ${inputName}\nJob: ${workflowNode.job.displayName}`
+                const node = this.nodes.find(ws => ws.job.id === jobId);
+                const displayText = node
+                    ? `Input: ${inputName}\nJob: ${node.job.displayName}`
                     : `Input: ${inputName}`;
                 this.showText(displayText);
             } else if (objectToDisplay.userData?.type === 'output') {
                 // Handle output cylinders
                 const outputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const workflowNode = this.workflowNodes.find(ws => ws.job.id === jobId);
-                const displayText = workflowNode
-                    ? `Output: ${outputName}\nJob: ${workflowNode.job.displayName}`
+                const node = this.nodes.find(ws => ws.job.id === jobId);
+                const displayText = node
+                    ? `Output: ${outputName}\nJob: ${node.job.displayName}`
                     : `Output: ${outputName}`;
                 this.showText(displayText);
             }
@@ -472,7 +472,7 @@ class WorkflowVisualizer extends XRWorld {
             processing.add(nodeId);
 
             // Find all edges that lead TO this node (dependencies)
-            const incomingEdges = workflow.workflowEdges.filter(edge => edge.to === nodeId);
+            const incomingEdges = workflow.edges.filter(edge => edge.to === nodeId);
 
             if (incomingEdges.length === 0) {
                 // No dependencies, this is a starting node (level 0)
@@ -505,7 +505,7 @@ class WorkflowVisualizer extends XRWorld {
         return levels;
     }
 
-    private optimizeInputSocketOrder(job: Job, workflowNode: WorkflowNode, workflow: Workflow): ResourceType[] {
+    private optimizeInputSocketOrder(job: Job, node: WorkflowNode, workflow: Workflow): ResourceType[] {
         // Create array of inputs with their source node positions
         interface InputWithPosition {
             input: ResourceType;
@@ -515,8 +515,8 @@ class WorkflowVisualizer extends XRWorld {
 
         const inputsWithSourcePositions: InputWithPosition[] = job.syntacticSpec.inputs.map((input: ResourceType) => {
             // Find the source node that produces this input
-            const sourceEdge = workflow.workflowEdges.find(edge =>
-                edge.to === workflowNode.job.id && edge.dataFlow.includes(input.displayName)
+            const sourceEdge = workflow.edges.find(edge =>
+                edge.to === node.job.id && edge.dataFlow.includes(input.displayName)
             );
 
             if (!sourceEdge) {
@@ -580,11 +580,11 @@ class WorkflowVisualizer extends XRWorld {
         const executionLevels = this.calculateExecutionLevels(workflow);
 
         // Create visual nodes for each workflow node
-        workflow.nodes.forEach((workflowNode, index) => {
-            const job = workflowNode.job;
+        workflow.nodes.forEach((node, index) => {
+            const job = node.job;
 
             // Get the execution level and position within that level
-            const level = executionLevels.get(workflowNode.job.id);
+            const level = executionLevels.get(node.job.id);
             if (level === undefined) return;
 
             const nodesAtLevel = Array.from(executionLevels.entries())
@@ -592,7 +592,7 @@ class WorkflowVisualizer extends XRWorld {
                 .map(([nodeId, _]) => workflow.nodes.find(n => n.job.id === nodeId))
                 .filter((node): node is WorkflowNode => node !== undefined);
 
-            const indexInLevel = nodesAtLevel.findIndex(n => n.job.id === workflowNode.job.id);
+            const indexInLevel = nodesAtLevel.findIndex(n => n.job.id === node.job.id);
 
             // Position nodes: X = execution level, Y = position within level
             const x = level.level * horizontalSpacing - 15; // Horizontal position based on execution level
@@ -602,7 +602,7 @@ class WorkflowVisualizer extends XRWorld {
             // Create main sphere for the job (simple sphere without holes)
             const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
             const sphereMaterial = new THREE.MeshStandardMaterial({
-                color: workflowNode.isFakeStep ? 0x888888 : 0x000000,
+                color: node.isFakeStep ? 0x888888 : 0x000000,
                 metalness: 0.3,
                 roughness: 0.4
             });
@@ -616,8 +616,8 @@ class WorkflowVisualizer extends XRWorld {
                 name: job.displayName,
                 description: job.semanticSpec.description,
                 jobId: job.id,
-                stepId: workflowNode.job.id, // Use job.id since WorkflowNode doesn't have id
-                isFakeStep: workflowNode.isFakeStep,
+                stepId: node.job.id, // Use job.id since Node doesn't have id
+                isFakeStep: node.isFakeStep,
                 executionLevel: level.level,
                 parallelIndex: indexInLevel
             };
@@ -625,14 +625,14 @@ class WorkflowVisualizer extends XRWorld {
             this.scene.add(sphere);
 
             // Store the workflow step with its mesh
-            this.workflowNodes.push({
-                ...workflowNode,
+            this.nodes.push({
+                ...node,
                 mesh: sphere
             });
 
             // Create input stubs (green cylinders on the left side)
             // Optimize input socket ordering based on source node positions to minimize crossings
-            const optimizedInputs = this.optimizeInputSocketOrder(job, workflowNode, workflow);
+            const optimizedInputs = this.optimizeInputSocketOrder(job, node, workflow);
 
             optimizedInputs.forEach((input, inputIndex) => {
                 const inputStub = this.createCylinder(
@@ -656,7 +656,7 @@ class WorkflowVisualizer extends XRWorld {
                     type: 'input',
                     name: input.displayName,
                     jobId: job.id,
-                    stepId: workflowNode.job.id // Use job.id since WorkflowNode doesn't have id
+                    stepId: node.job.id // Use job.id since Node doesn't have id
                 };
 
                 this.scene.add(inputStub);
@@ -685,7 +685,7 @@ class WorkflowVisualizer extends XRWorld {
                     type: 'output',
                     name: output.displayName,
                     jobId: job.id,
-                    stepId: workflowNode.job.id // Use job.id since WorkflowNode doesn't have id
+                    stepId: node.job.id // Use job.id since Node doesn't have id
                 };
 
                 this.scene.add(outputStub);
@@ -704,15 +704,15 @@ class WorkflowVisualizer extends XRWorld {
         this.connectionObjects = [];
 
         // Create lightning connections for each edge
-        workflow.workflowEdges.forEach(edge => {
+        workflow.edges.forEach(edge => {
             const fromNode = workflow.nodes.find(n => n.job.id === edge.from);
             const toNode = workflow.nodes.find(n => n.job.id === edge.to);
 
             if (!fromNode || !toNode) return;
 
             // Find the mesh objects for these nodes
-            const fromMesh = this.workflowNodes.find(wn => wn.job.id === fromNode.job.id)?.mesh;
-            const toMesh = this.workflowNodes.find(wn => wn.job.id === toNode.job.id)?.mesh;
+            const fromMesh = this.nodes.find(wn => wn.job.id === fromNode.job.id)?.mesh;
+            const toMesh = this.nodes.find(wn => wn.job.id === toNode.job.id)?.mesh;
 
             if (!fromMesh || !toMesh) return;
 
