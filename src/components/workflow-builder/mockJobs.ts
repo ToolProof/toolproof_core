@@ -197,7 +197,7 @@ export function generateWorkflows(jobs: Job[]): Workflow[] {
         
         return {
             nodes: steps,
-            edges
+            workflowEdges: edges
         };
     };
     

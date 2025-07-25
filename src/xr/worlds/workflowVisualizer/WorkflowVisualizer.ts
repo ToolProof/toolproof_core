@@ -8,7 +8,7 @@ interface WorkflowNodeWithMesh extends WorkflowNode {
     mesh: THREE.Mesh;
 }
 
-class Workflows extends XRWorld {
+class WorkflowVisualizer extends XRWorld {
     private workflowNodes: WorkflowNodeWithMesh[] = [];
     private connectionObjects: THREE.Object3D[] = []; // Changed to handle any 3D object
     private mouse: THREE.Vector2 = new THREE.Vector2();
@@ -472,7 +472,7 @@ class Workflows extends XRWorld {
             processing.add(nodeId);
 
             // Find all edges that lead TO this node (dependencies)
-            const incomingEdges = workflow.edges.filter(edge => edge.to === nodeId);
+            const incomingEdges = workflow.workflowEdges.filter(edge => edge.to === nodeId);
 
             if (incomingEdges.length === 0) {
                 // No dependencies, this is a starting node (level 0)
@@ -515,7 +515,7 @@ class Workflows extends XRWorld {
 
         const inputsWithSourcePositions: InputWithPosition[] = job.syntacticSpec.inputs.map((input: ResourceType) => {
             // Find the source node that produces this input
-            const sourceEdge = workflow.edges.find(edge =>
+            const sourceEdge = workflow.workflowEdges.find(edge =>
                 edge.to === workflowNode.job.id && edge.dataFlow.includes(input.displayName)
             );
 
@@ -704,7 +704,7 @@ class Workflows extends XRWorld {
         this.connectionObjects = [];
 
         // Create lightning connections for each edge
-        workflow.edges.forEach(edge => {
+        workflow.workflowEdges.forEach(edge => {
             const fromNode = workflow.nodes.find(n => n.job.id === edge.from);
             const toNode = workflow.nodes.find(n => n.job.id === edge.to);
 
@@ -897,4 +897,4 @@ class Workflows extends XRWorld {
 }
 
 
-export { Workflows };
+export { WorkflowVisualizer as Workflows };

@@ -4,7 +4,7 @@ import { Job, WorkflowNode, FakeStepInputs } from './types';
 import WorkflowHeader from './WorkflowHeader';
 import AvailableJobsPanel from './AvailableJobsPanel';
 import WorkflowStepsPanel from './WorkflowStepsPanel';
-import { Workflows } from '@/xr/worlds/workflows/Workflows';
+import { Workflows } from '@/xr/worlds/workflowVisualizer/WorkflowVisualizer';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 export default function WorkflowBuilder() {

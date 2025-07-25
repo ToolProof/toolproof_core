@@ -28,11 +28,7 @@ export interface Job extends Concept {
 
 export interface WorkflowNode {
     job: Job;
-    isFakeStep?: boolean;
-}
-
-export interface FakeStepInputs {
-    [key: string]: string; // Maps input name to selected file name
+    isFakeStep: boolean;
 }
 
 export interface WorkflowEdge {
@@ -42,6 +38,6 @@ export interface WorkflowEdge {
 }
 
 export interface Workflow {
-    nodes: WorkflowNode[];
-    edges: WorkflowEdge[];
+    workflowNodes: WorkflowNode[];
+    workflowEdges: WorkflowEdge[];
 }

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { ToolProof } from '@/xr/worlds/toolproof/ToolProof';
-import { Workflows } from '@/xr/worlds/workflows/Workflows';
+import { Workflows } from '@/xr/worlds/workflowVisualizer/WorkflowVisualizer';
 import { mockJobs_1, generateWorkflows } from '@/components/workflow-builder/mockJobs';
 
 
