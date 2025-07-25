@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useRef } from 'react';
 import { ToolProof } from '@/xr/worlds/toolproof/ToolProof';
 import { Workflows } from '@/xr/worlds/workflowVisualizer/WorkflowVisualizer';
-import { mockJobs_1, generateWorkflows } from '@/components/workflow-builder/mockJobs';
+import { mockJobs_1, } from 'updohilo/dist/mocks/jobs';
+import { useEffect, useRef } from 'react';
+
 
 
 export default function Home() {
