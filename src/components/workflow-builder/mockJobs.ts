@@ -1,4 +1,4 @@
-import { Job, WorkflowNode, Workflow, WorkflowEdge } from './types';
+import { Job, WorkflowNode, Workflow, WorkflowEdge } from 'updohilo/dist/types';
 import { v4 as uuidv4 } from 'uuid';
 import { RT } from './resourceTypeRegistry';
 
