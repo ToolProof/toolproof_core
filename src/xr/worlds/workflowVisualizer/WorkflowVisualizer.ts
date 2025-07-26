@@ -1,23 +1,40 @@
-import { Workflow, Job, ResourceType } from 'updohilo/dist/types/typesWF';
+import { 
+    Workflow, 
+    Job, 
+    ResourceType, 
+    WorkflowStepUnion, 
+    SimpleWorkflowStep, 
+    ParallelWorkflowStep, 
+    ConditionalWorkflowStep, 
+    WhileLoopWorkflowStep, 
+    ForLoopWorkflowStep,
+    WorkflowStep,
+    DataExchange 
+} from 'updohilo/dist/types/typesWF';
 // import { XRWorld, TransientSelection } from 'metaverse/dist/XRWorld';
 import { XRWorld, TransientSelection } from '../../XRWorld';
 import * as THREE from 'three';
 
-
-interface WorkflowNodeWithMesh extends WorkflowNode {
+interface StepVisualData {
+    stepUnion: WorkflowStepUnion;
     mesh: THREE.Mesh;
+    job?: Job;
+    level: number;
+    indexInLevel: number;
+    stepId: string;
 }
 
 export default class WorkflowVisualizer extends XRWorld {
-    private nodes: WorkflowNodeWithMesh[] = [];
+    private stepVisuals: StepVisualData[] = [];
     private connectionObjects: THREE.Object3D[] = []; // Changed to handle any 3D object
     private mouse: THREE.Vector2 = new THREE.Vector2();
     private mouseRaycaster: THREE.Raycaster = new THREE.Raycaster();
     private isMouseInteracting: boolean = false;
     private tooltip: HTMLDivElement | null = null;
     private workflow: Workflow;
+    private availableJobs: Map<string, Job> = new Map();
 
-    constructor(container: HTMLDivElement, workflow: Workflow) {
+    constructor(container: HTMLDivElement, workflow: Workflow, availableJobs?: Job[]) {
         super(container, {
             speedMultiplier: 5,
             rayColor: 'yellow',
@@ -31,6 +48,13 @@ export default class WorkflowVisualizer extends XRWorld {
 
         // Store the workflow
         this.workflow = workflow;
+
+        // Store available jobs
+        if (availableJobs) {
+            availableJobs.forEach(job => {
+                this.availableJobs.set(job.id, job);
+            });
+        }
 
         // Hide VR button since we're embedding in UI
         this.hideVRButton();
@@ -63,7 +87,7 @@ export default class WorkflowVisualizer extends XRWorld {
 
     private setupContainerRendering(container: HTMLDivElement) {
         // Ensure the renderer canvas is properly sized and contained
-        const canvas = this.renderer.domElement;
+        const canvas = (this as any).renderer.domElement;
         canvas.style.width = '100%';
         canvas.style.height = '100%';
         canvas.style.display = 'block';
@@ -97,11 +121,11 @@ export default class WorkflowVisualizer extends XRWorld {
     }
 
     private setupMouseInteraction() {
-        const canvas = this.renderer.domElement;
+        const canvas = (this as any).renderer.domElement;
 
         // Mouse move event for hover highlighting and tooltip positioning
-        canvas.addEventListener('mousemove', (event) => {
-            if (!this.renderer.xr.getSession()) {
+        canvas.addEventListener('mousemove', (event: MouseEvent) => {
+            if (!(this as any).renderer.xr.getSession()) {
                 this.updateMousePosition(event);
                 this.isMouseInteracting = true;
 
@@ -114,8 +138,8 @@ export default class WorkflowVisualizer extends XRWorld {
         });
 
         // Mouse click event for selection
-        canvas.addEventListener('click', (event) => {
-            if (!this.renderer.xr.getSession()) {
+        canvas.addEventListener('click', (event: MouseEvent) => {
+            if (!(this as any).renderer.xr.getSession()) {
                 this.updateMousePosition(event);
                 this.handleMouseSelection();
             }
@@ -123,7 +147,7 @@ export default class WorkflowVisualizer extends XRWorld {
 
         // Mouse leave event to clear highlighting and hide tooltip
         canvas.addEventListener('mouseleave', () => {
-            if (!this.renderer.xr.getSession()) {
+            if (!(this as any).renderer.xr.getSession()) {
                 this.isMouseInteracting = false;
                 this.clearHighlighting();
                 this.hideTooltip();
@@ -134,19 +158,19 @@ export default class WorkflowVisualizer extends XRWorld {
     async init() {
         // Add some ambient and directional lighting to see the spheres better
         const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-        this.scene.add(ambientLight);
+        (this as any).scene.add(ambientLight);
 
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
         directionalLight.position.set(10, 10, 5);
         directionalLight.castShadow = true;
-        this.scene.add(directionalLight);
+        (this as any).scene.add(directionalLight);
 
-        // Create spheres with stubs for each workflow step
+        // Create visualization for the new workflow structure
         this.createWorkflowVisualization(this.workflow);
 
         // Position camera to get a good view of all workflow nodes
-        this.camera.position.set(0, 20, 30);
-        this.camera.lookAt(0, 0, 0);
+        (this as any).camera.position.set(0, 20, 30);
+        (this as any).camera.lookAt(0, 0, 0);
 
         // Start animation loop for lightning effects
         this.startLightningAnimation();
@@ -222,7 +246,7 @@ export default class WorkflowVisualizer extends XRWorld {
         let intersected: THREE.Object3D | null = null;
 
         // Use different interaction methods based on whether we're in VR or not
-        if (this.renderer.xr.getSession()) {
+        if ((this as any).renderer.xr.getSession()) {
             // VR mode - use custom raycast
             intersected = this.customRaycast();
         } else {
@@ -235,7 +259,7 @@ export default class WorkflowVisualizer extends XRWorld {
         this.intersected = intersected;
 
         // Custom highlighting logic for nested spheres and cylinders
-        this.scene.traverse((child) => {
+        (this as any).scene.traverse((child: THREE.Object3D) => {
             if (child.userData?.type === 'resource' && child instanceof THREE.Mesh) {
                 const mat = child.material as THREE.MeshStandardMaterial;
                 mat.emissive.set(this.intersected === child ? 'yellow' : 'black');
@@ -245,39 +269,26 @@ export default class WorkflowVisualizer extends XRWorld {
             }
         });
 
-        // Debug logging
-        /* console.log('selectedObject:', this.selectedObject);
-        console.log('intersected:', this.intersected);
-        console.log('dataObjects count:', this.nodes.length);
-        console.log('isMouseInteracting:', this.isMouseInteracting);
-        console.log('VR Session:', this.renderer.xr.getSession()); */
-
         // Show text for either selected object (VR/click) or intersected object (hover)
         const objectToDisplay = this.selectedObject || this.intersected;
 
         if (objectToDisplay) {
-            /* console.log('Display object userData:', objectToDisplay.userData);
-            console.log('Display object type:', objectToDisplay.type);
-            console.log('Display object constructor:', objectToDisplay.constructor.name);
-            console.log('Display object id:', objectToDisplay.id);
-            console.log('Looking for matching dataObject...'); */
-
             // Handle different object types
             if (objectToDisplay.userData?.type === 'resource') {
                 // Handle job spheres
                 let found = false;
-                this.nodes.forEach((dataObject, index) => {
-                    const isMatch = dataObject.mesh === objectToDisplay;
-                    if (index < 5 || isMatch) {
-                        //console.log(`Checking dataObject ${index}:`, isMatch, dataObject.job.name,
-                        //    'meshId:', dataObject.mesh.id, 'objectId:', objectToDisplay?.id);
-                    }
+                this.stepVisuals.forEach((stepVisual, index) => {
+                    const isMatch = stepVisual.mesh === objectToDisplay;
                     if (isMatch) {
-                        //console.log('Found matching dataObject:', dataObject);
-                        const displayText = dataObject.job.semanticSpec.description
-                            ? `${dataObject.job.displayName}:\n${dataObject.job.semanticSpec.description}`
-                            : `${dataObject.job.displayName}\n[No description available]`;
-                        this.showText(displayText);
+                        const job = stepVisual.job;
+                        if (job) {
+                            const displayText = job.semanticSpec.description
+                                ? `${job.name}:\n${job.semanticSpec.description}`
+                                : `${job.name}\n[No description available]`;
+                            this.showText(displayText);
+                        } else {
+                            this.showText(`Step: ${stepVisual.stepId}`);
+                        }
                         found = true;
                         return;
                     }
@@ -293,18 +304,18 @@ export default class WorkflowVisualizer extends XRWorld {
                 // Handle input cylinders
                 const inputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const node = this.nodes.find(ws => ws.job.id === jobId);
-                const displayText = node
-                    ? `Input: ${inputName}\nJob: ${node.job.displayName}`
+                const stepVisual = this.stepVisuals.find(sv => sv.job?.id === jobId);
+                const displayText = stepVisual?.job
+                    ? `Input: ${inputName}\nJob: ${stepVisual.job.name}`
                     : `Input: ${inputName}`;
                 this.showText(displayText);
             } else if (objectToDisplay.userData?.type === 'output') {
                 // Handle output cylinders
                 const outputName = objectToDisplay.userData.name;
                 const jobId = objectToDisplay.userData.jobId;
-                const node = this.nodes.find(ws => ws.job.id === jobId);
-                const displayText = node
-                    ? `Output: ${outputName}\nJob: ${node.job.displayName}`
+                const stepVisual = this.stepVisuals.find(sv => sv.job?.id === jobId);
+                const displayText = stepVisual?.job
+                    ? `Output: ${outputName}\nJob: ${stepVisual.job.name}`
                     : `Output: ${outputName}`;
                 this.showText(displayText);
             }
@@ -316,7 +327,7 @@ export default class WorkflowVisualizer extends XRWorld {
     // Override showText to handle non-VR mode with tooltip
     protected override showText(text: string) {
         // In VR mode, use the parent's implementation
-        if (this.renderer.xr.getSession()) {
+        if ((this as any).renderer.xr.getSession()) {
             super.showText(text);
             return;
         }
@@ -334,7 +345,6 @@ export default class WorkflowVisualizer extends XRWorld {
 
         this.tooltip.textContent = text;
         this.tooltip.style.display = 'block';
-        // console.log('Tooltip showing:', text);
     }
 
     private hideTooltip() {
@@ -357,7 +367,7 @@ export default class WorkflowVisualizer extends XRWorld {
     private customRaycast(): THREE.Object3D | null {
         // Find all interactable objects (spheres and cylinders)
         const allInteractables: THREE.Object3D[] = [];
-        this.scene.traverse((child) => {
+        (this as any).scene.traverse((child: THREE.Object3D) => {
             if (child.userData?.type === 'resource' || child.userData?.type === 'input' || child.userData?.type === 'output') {
                 allInteractables.push(child);
             }
@@ -369,7 +379,7 @@ export default class WorkflowVisualizer extends XRWorld {
 
         // We need to access the controller somehow. Let's try to find it in cameraRig
         let controller: THREE.Group | null = null;
-        this.cameraRig.traverse((child) => {
+        (this as any).cameraRig.traverse((child: THREE.Object3D) => {
             if (child instanceof THREE.Group && child.children.some(c => c instanceof THREE.Line)) {
                 controller = child;
             }
@@ -400,7 +410,7 @@ export default class WorkflowVisualizer extends XRWorld {
     }
 
     private updateMousePosition(event: MouseEvent) {
-        const canvas = this.renderer.domElement;
+        const canvas = (this as any).renderer.domElement;
         const rect = canvas.getBoundingClientRect();
 
         // Convert mouse coordinates to normalized device coordinates (-1 to +1)
@@ -422,7 +432,7 @@ export default class WorkflowVisualizer extends XRWorld {
     private performMouseRaycast(): THREE.Object3D | null {
         // Find all interactable objects (spheres and cylinders)
         const allInteractables: THREE.Object3D[] = [];
-        this.scene.traverse((child) => {
+        (this as any).scene.traverse((child: THREE.Object3D) => {
             if (child.userData?.type === 'resource' || child.userData?.type === 'input' || child.userData?.type === 'output') {
                 allInteractables.push(child);
             }
@@ -433,7 +443,7 @@ export default class WorkflowVisualizer extends XRWorld {
         }
 
         // Update the mouse raycaster
-        this.mouseRaycaster.setFromCamera(this.mouse, this.camera);
+        this.mouseRaycaster.setFromCamera(this.mouse, (this as any).camera);
 
         // Perform raycast against all interactable objects
         const intersects = this.mouseRaycaster.intersectObjects(allInteractables, false);
@@ -442,7 +452,7 @@ export default class WorkflowVisualizer extends XRWorld {
     }
 
     private clearHighlighting() {
-        this.scene.traverse((child) => {
+        (this as any).scene.traverse((child: THREE.Object3D) => {
             if (child.userData?.type === 'resource' && child instanceof THREE.Mesh) {
                 const mat = child.material as THREE.MeshStandardMaterial;
                 mat.emissive.set('black');
@@ -453,371 +463,216 @@ export default class WorkflowVisualizer extends XRWorld {
         });
     }
 
-    private calculateExecutionLevels(workflow: Workflow): Map<string, { level: number }> {
-        const levels = new Map<string, { level: number }>();
-        const visited = new Set<string>();
-        const processing = new Set<string>();
-
-        // Helper function to calculate the maximum dependency level for a node
-        const calculateLevel = (nodeId: string): number => {
-            if (processing.has(nodeId)) {
-                // Circular dependency detected, treat as level 0
-                return 0;
-            }
-
-            if (visited.has(nodeId)) {
-                return levels.get(nodeId)?.level || 0;
-            }
-
-            processing.add(nodeId);
-
-            // Find all edges that lead TO this node (dependencies)
-            const incomingEdges = workflow.edges.filter(edge => edge.to === nodeId);
-
-            if (incomingEdges.length === 0) {
-                // No dependencies, this is a starting node (level 0)
-                levels.set(nodeId, { level: 0 });
-                visited.add(nodeId);
-                processing.delete(nodeId);
-                return 0;
-            }
-
-            // Calculate the maximum level of all dependencies + 1
-            let maxDependencyLevel = -1;
-            for (const edge of incomingEdges) {
-                const dependencyLevel = calculateLevel(edge.from);
-                maxDependencyLevel = Math.max(maxDependencyLevel, dependencyLevel);
-            }
-
-            const nodeLevel = maxDependencyLevel + 1;
-            levels.set(nodeId, { level: nodeLevel });
-            visited.add(nodeId);
-            processing.delete(nodeId);
-
-            return nodeLevel;
-        };
-
-        // Calculate levels for all nodes
-        workflow.nodes.forEach(node => {
-            calculateLevel(node.job.id);
-        });
-
-        return levels;
-    }
-
-    private optimizeInputSocketOrder(job: Job, node: WorkflowNode, workflow: Workflow): ResourceType[] {
-        // Create array of inputs with their source node positions
-        interface InputWithPosition {
-            input: ResourceType;
-            sourceY: number;
-            isFake: boolean;
-        }
-
-        const inputsWithSourcePositions: InputWithPosition[] = job.syntacticSpec.inputs.map((input: ResourceType) => {
-            // Find the source node that produces this input
-            const sourceEdge = workflow.edges.find(edge =>
-                edge.to === node.job.id && edge.dataFlow.includes(input.displayName)
-            );
-
-            if (!sourceEdge) {
-                // No source found (probably a fake step input), keep original position
-                return {
-                    input,
-                    sourceY: 0, // Default position for inputs without sources
-                    isFake: true
-                };
-            }
-
-            const sourceNode = workflow.nodes.find(node => node.job.id === sourceEdge.from);
-            if (!sourceNode) {
-                return { input, sourceY: 0, isFake: true };
-            }
-
-            // Get the Y position of the source node
-            const executionLevels = this.calculateExecutionLevels(workflow);
-            const sourceLevel = executionLevels.get(sourceNode.job.id);
-
-            if (!sourceLevel) {
-                return { input, sourceY: 0, isFake: true };
-            }
-
-            // Calculate source node's Y position (same logic as in createWorkflowVisualization)
-            const nodesAtSourceLevel = Array.from(executionLevels.entries())
-                .filter(([_, nodeLevel]) => nodeLevel.level === sourceLevel.level)
-                .map(([nodeId, _]) => workflow.nodes.find(n => n.job.id === nodeId))
-                .filter((node): node is WorkflowNode => node !== undefined);
-
-            const sourceIndexInLevel = nodesAtSourceLevel.findIndex(n => n.job.id === sourceNode.job.id);
-            const verticalSpacing = 8; // Same as in createWorkflowVisualization
-            const sourceY = (sourceIndexInLevel - (nodesAtSourceLevel.length - 1) / 2) * verticalSpacing;
-
-            return {
-                input,
-                sourceY,
-                isFake: false
-            };
-        });
-
-        // Sort inputs by their source Y position (top to bottom)
-        // Put fake inputs at the bottom
-        inputsWithSourcePositions.sort((a: InputWithPosition, b: InputWithPosition) => {
-            if (a.isFake && !b.isFake) return 1;  // Fake inputs go to bottom
-            if (!a.isFake && b.isFake) return -1; // Real inputs go to top
-            return a.sourceY - b.sourceY; // Sort by Y position (top to bottom)
-        });
-
-        return inputsWithSourcePositions.map((item: InputWithPosition) => item.input);
-    }
-
     private createWorkflowVisualization(workflow: Workflow) {
+        // For now, create a simplified visualization
+        // This is a basic implementation that can be expanded
+        
+        const stepPositions = this.calculateStepPositions(workflow.steps);
+        
+        stepPositions.forEach((position, index) => {
+            this.createStepVisualization(position.step, position.x, position.y, position.z, index);
+        });
+        
+        // Create connections between steps
+        this.createStepConnections(workflow.steps, stepPositions);
+    }
+    
+    private calculateStepPositions(steps: WorkflowStepUnion[]): Array<{step: WorkflowStepUnion, x: number, y: number, z: number}> {
+        const positions: Array<{step: WorkflowStepUnion, x: number, y: number, z: number}> = [];
+        const horizontalSpacing = 15;
+        const verticalSpacing = 8;
+        
+        steps.forEach((step, index) => {
+            const x = index * horizontalSpacing;
+            const y = 0;
+            const z = 0;
+            
+            positions.push({ step, x, y, z });
+        });
+        
+        return positions;
+    }
+    
+    private createStepVisualization(step: WorkflowStepUnion, x: number, y: number, z: number, index: number) {
+        const sphereRadius = 2;
+        
+        let color = 0x0066cc; // Default blue
+        let stepId = `step-${index}`;
+        let job: Job | undefined;
+        
+        // Determine color and properties based on step type
+        switch (step.type) {
+            case 'simple':
+                color = 0x0066cc; // Blue for simple steps
+                stepId = step.step.id;
+                job = this.availableJobs.get(step.step.jobId);
+                break;
+            case 'parallel':
+                color = 0x6600cc; // Purple for parallel
+                stepId = `parallel-${index}`;
+                break;
+            case 'conditional':
+                color = 0xcc6600; // Orange for conditional
+                stepId = `conditional-${index}`;
+                break;
+            case 'while':
+                color = 0x00cc66; // Green for while loops
+                stepId = `while-${index}`;
+                break;
+            case 'for':
+                color = 0xcc0066; // Pink for for loops
+                stepId = `for-${index}`;
+                break;
+        }
+        
+        // Create main sphere
+        const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
+        const sphereMaterial = new THREE.MeshStandardMaterial({
+            color: color,
+            metalness: 0.3,
+            roughness: 0.4
+        });
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        
+        sphere.position.set(x, y, z);
+        
+        // Set userData for interaction
+        sphere.userData = {
+            type: 'resource',
+            name: job?.name || step.type,
+            description: job?.semanticSpec.description || `${step.type} step`,
+            jobId: job?.id,
+            stepId: stepId,
+            stepType: step.type
+        };
+        
+        (this as any).scene.add(sphere);
+        
+        // Store the step visual data
+        this.stepVisuals.push({
+            stepUnion: step,
+            mesh: sphere,
+            job: job,
+            level: 0, // Will be calculated later if needed
+            indexInLevel: index,
+            stepId: stepId
+        });
+        
+        // Create input/output stubs for simple steps
+        if (step.type === 'simple' && job) {
+            this.createStepInputOutputStubs(job, x, y, z, stepId);
+        }
+    }
+    
+    private createStepInputOutputStubs(job: Job, centerX: number, centerY: number, centerZ: number, stepId: string) {
         const sphereRadius = 2;
         const stubRadius = 0.15;
         const stubLength = 0.8;
-        const horizontalSpacing = 15; // Space between execution levels
-        const verticalSpacing = 8; // Space between parallel nodes
-
-        // Calculate execution levels for parallel visualization
-        const executionLevels = this.calculateExecutionLevels(workflow);
-
-        // Create visual nodes for each workflow node
-        workflow.nodes.forEach((node, index) => {
-            const job = node.job;
-
-            // Get the execution level and position within that level
-            const level = executionLevels.get(node.job.id);
-            if (level === undefined) return;
-
-            const nodesAtLevel = Array.from(executionLevels.entries())
-                .filter(([_, nodeLevel]) => nodeLevel.level === level.level)
-                .map(([nodeId, _]) => workflow.nodes.find(n => n.job.id === nodeId))
-                .filter((node): node is WorkflowNode => node !== undefined);
-
-            const indexInLevel = nodesAtLevel.findIndex(n => n.job.id === node.job.id);
-
-            // Position nodes: X = execution level, Y = position within level
-            const x = level.level * horizontalSpacing - 15; // Horizontal position based on execution level
-            const z = 0;
-            const y = (indexInLevel - (nodesAtLevel.length - 1) / 2) * verticalSpacing; // Vertical spread for parallel nodes
-
-            // Create main sphere for the job (simple sphere without holes)
-            const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
-            const sphereMaterial = new THREE.MeshStandardMaterial({
-                color: node.isFakeStep ? 0x888888 : 0x000000,
-                metalness: 0.3,
-                roughness: 0.4
-            });
-            const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-
-            sphere.position.set(x, y, z);
-
-            // Set userData for interaction
-            sphere.userData = {
-                type: 'resource',
-                name: job.displayName,
-                description: job.semanticSpec.description,
+        const stubSpacing = 0.8;
+        
+        // Create input stubs (green cylinders on the left)
+        job.syntacticSpec.inputs.forEach((input, inputIndex) => {
+            const inputStub = this.createCylinder(stubRadius, stubLength, 0x00ff00);
+            
+            const totalInputs = job.syntacticSpec.inputs.length;
+            const inputY = centerY + (inputIndex - (totalInputs - 1) / 2) * stubSpacing;
+            const inputX = centerX - sphereRadius - stubLength / 2;
+            const inputZ = centerZ;
+            
+            inputStub.position.set(inputX, inputY, inputZ);
+            inputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
+            
+            inputStub.userData = {
+                type: 'input',
+                name: input.role.name,
                 jobId: job.id,
-                stepId: node.job.id, // Use job.id since Node doesn't have id
-                isFakeStep: node.isFakeStep,
-                executionLevel: level.level,
-                parallelIndex: indexInLevel
+                stepId: stepId
             };
-
-            this.scene.add(sphere);
-
-            // Store the workflow step with its mesh
-            this.nodes.push({
-                ...node,
-                mesh: sphere
-            });
-
-            // Create input stubs (green cylinders on the left side)
-            // Optimize input socket ordering based on source node positions to minimize crossings
-            const optimizedInputs = this.optimizeInputSocketOrder(job, node, workflow);
-
-            optimizedInputs.forEach((input, inputIndex) => {
-                const inputStub = this.createCylinder(
-                    stubRadius,
-                    stubLength,
-                    0x00ff00 // Green color for inputs
-                );
-
-                // Position input stubs linearly on the left side of the sphere
-                const stubVerticalSpacing = 0.8;
-                const totalInputs = optimizedInputs.length;
-                const inputY = y + (inputIndex - (totalInputs - 1) / 2) * stubVerticalSpacing;
-                const inputX = x - sphereRadius - stubLength / 2; // Attached to left side
-                const inputZ = z;
-
-                inputStub.position.set(inputX, inputY, inputZ);
-                inputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
-
-                // Set userData for the input
-                inputStub.userData = {
-                    type: 'input',
-                    name: input.displayName,
-                    jobId: job.id,
-                    stepId: node.job.id // Use job.id since Node doesn't have id
-                };
-
-                this.scene.add(inputStub);
-            });
-
-            // Create output stubs (red cylinders on the right side)
-            job.syntacticSpec.outputs.forEach((output, outputIndex) => {
-                const outputStub = this.createCylinder(
-                    stubRadius,
-                    stubLength,
-                    0xff0000 // Red color for outputs
-                );
-
-                // Position output stubs linearly on the right side of the sphere
-                const stubVerticalSpacing = 0.8;
-                const totalOutputs = job.syntacticSpec.outputs.length;
-                const outputY = y + (outputIndex - (totalOutputs - 1) / 2) * stubVerticalSpacing;
-                const outputX = x + sphereRadius + stubLength / 2; // Attached to right side
-                const outputZ = z;
-
-                outputStub.position.set(outputX, outputY, outputZ);
-                outputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
-
-                // Set userData for the output
-                outputStub.userData = {
-                    type: 'output',
-                    name: output.displayName,
-                    jobId: job.id,
-                    stepId: node.job.id // Use job.id since Node doesn't have id
-                };
-
-                this.scene.add(outputStub);
-            });
+            
+            (this as any).scene.add(inputStub);
         });
-
-        // Create animated connections between matching outputs and inputs
-        this.createAnimatedConnections(workflow);
-    }
-
-    private createAnimatedConnections(workflow: Workflow) {
-        // Clear any existing connection objects
-        this.connectionObjects.forEach(obj => {
-            this.scene.remove(obj);
-        });
-        this.connectionObjects = [];
-
-        // Create lightning connections for each edge
-        workflow.edges.forEach(edge => {
-            const fromNode = workflow.nodes.find(n => n.job.id === edge.from);
-            const toNode = workflow.nodes.find(n => n.job.id === edge.to);
-
-            if (!fromNode || !toNode) return;
-
-            // Find the mesh objects for these nodes
-            const fromMesh = this.nodes.find(wn => wn.job.id === fromNode.job.id)?.mesh;
-            const toMesh = this.nodes.find(wn => wn.job.id === toNode.job.id)?.mesh;
-
-            if (!fromMesh || !toMesh) return;
-
-            // Create lightning connection for each data flow
-            edge.dataFlow.forEach(dataName => {
-                // Find the specific output and input stubs
-                const outputIndex = fromNode.job.syntacticSpec.outputs.findIndex(output => output.displayName === dataName);
-
-                // For input index, we need to use the optimized order, not the original
-                const optimizedInputs = this.optimizeInputSocketOrder(toNode.job, toNode, workflow);
-                const inputIndex = optimizedInputs.findIndex(input => input.displayName === dataName);
-
-                if (outputIndex === -1 || inputIndex === -1) return;
-
-                // Calculate positions of the specific stubs
-                const fromPos = fromMesh.position.clone();
-                const toPos = toMesh.position.clone();
-
-                // Adjust for stub positions
-                const sphereRadius = 2;
-                const stubLength = 0.8;
-                const stubVerticalSpacing = 0.8;
-
-                // Output stub position (right side of from node)
-                const totalOutputs = fromNode.job.syntacticSpec.outputs.length;
-                const outputY = fromPos.y + (outputIndex - (totalOutputs - 1) / 2) * stubVerticalSpacing;
-                const outputPos = new THREE.Vector3(
-                    fromPos.x + sphereRadius + stubLength / 2,
-                    outputY,
-                    fromPos.z
-                );
-
-                // Input stub position (left side of to node) - using optimized order
-                const totalInputs = optimizedInputs.length;
-                const inputY = toPos.y + (inputIndex - (totalInputs - 1) / 2) * stubVerticalSpacing;
-                const inputPos = new THREE.Vector3(
-                    toPos.x - sphereRadius - stubLength / 2,
-                    inputY,
-                    toPos.z
-                );
-
-                // Create lightning connection
-                const lightning = this.createLightningConnection(outputPos, inputPos, dataName);
-                this.scene.add(lightning);
-                this.connectionObjects.push(lightning);
-            });
+        
+        // Create output stubs (red cylinders on the right)
+        job.syntacticSpec.outputs.forEach((output, outputIndex) => {
+            const outputStub = this.createCylinder(stubRadius, stubLength, 0xff0000);
+            
+            const totalOutputs = job.syntacticSpec.outputs.length;
+            const outputY = centerY + (outputIndex - (totalOutputs - 1) / 2) * stubSpacing;
+            const outputX = centerX + sphereRadius + stubLength / 2;
+            const outputZ = centerZ;
+            
+            outputStub.position.set(outputX, outputY, outputZ);
+            outputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
+            
+            outputStub.userData = {
+                type: 'output',
+                name: output.role.name,
+                jobId: job.id,
+                stepId: stepId
+            };
+            
+            (this as any).scene.add(outputStub);
         });
     }
-
-    private createLightningConnection(startPos: THREE.Vector3, endPos: THREE.Vector3, dataName: string): THREE.Group {
-        const group = new THREE.Group();
-
-        // Calculate if this is a long-distance connection that needs routing
-        const distance = startPos.distanceTo(endPos);
-        const isLongDistance = distance > 30; // Threshold for long connections
-
-        let points: THREE.Vector3[];
-
-        if (isLongDistance) {
-            // Route long connections around the main workflow area
-            points = this.createRoutedPath(startPos, endPos);
-        } else {
-            // Use direct jagged path for short connections
-            points = this.createDirectPath(startPos, endPos);
+    
+    private createStepConnections(steps: WorkflowStepUnion[], positions: Array<{step: WorkflowStepUnion, x: number, y: number, z: number}>) {
+        // Create simple sequential connections for now
+        // In a full implementation, this would analyze the dataExchanges in each step
+        
+        for (let i = 0; i < positions.length - 1; i++) {
+            const fromPos = positions[i];
+            const toPos = positions[i + 1];
+            
+            const startPoint = new THREE.Vector3(fromPos.x + 2, fromPos.y, fromPos.z);
+            const endPoint = new THREE.Vector3(toPos.x - 2, toPos.y, toPos.z);
+            
+            const connection = this.createSimpleConnection(startPoint, endPoint);
+            (this as any).scene.add(connection);
+            this.connectionObjects.push(connection);
         }
-
-        // Create the lightning geometry
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-
-        // Create animated material that pulses
+    }
+    
+    private createSimpleConnection(startPos: THREE.Vector3, endPos: THREE.Vector3): THREE.Group {
+        const group = new THREE.Group();
+        
+        // Create a simple line connection
+        const geometry = new THREE.BufferGeometry().setFromPoints([startPos, endPos]);
         const material = new THREE.LineBasicMaterial({
-            color: isLongDistance ? 0xff8800 : 0x00ffff, // Orange for long routes, cyan for short
-            linewidth: 3,
+            color: 0x00ffff,
+            linewidth: 2,
             transparent: true,
-            opacity: 0.8
+            opacity: 0.7
         });
-
-        const lightning = new THREE.Line(geometry, material);
-
-        // Add glow effect with additional thicker, more transparent line
-        const glowMaterial = new THREE.LineBasicMaterial({
-            color: isLongDistance ? 0xffaa44 : 0x88ffff,
-            linewidth: 8,
-            transparent: true,
-            opacity: 0.3
-        });
-        const glowLine = new THREE.Line(geometry.clone(), glowMaterial);
-
-        group.add(lightning);
-        group.add(glowLine);
-
-        // Store animation data
-        group.userData = {
-            type: 'lightning',
-            dataName: dataName,
-            startTime: Date.now(),
-            mainMaterial: material,
-            glowMaterial: glowMaterial,
-            points: points,
-            isLongDistance: isLongDistance
-        };
-
+        
+        const line = new THREE.Line(geometry, material);
+        group.add(line);
+        
+        // Add arrow at the end
+        const arrowGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
+        const arrowMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+        const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
+        
+        // Position and orient the arrow
+        arrow.position.copy(endPos);
+        const direction = new THREE.Vector3().subVectors(endPos, startPos).normalize();
+        arrow.lookAt(endPos.clone().add(direction));
+        arrow.rotateX(Math.PI / 2);
+        
+        group.add(arrow);
+        
         return group;
     }
-
+    
+    private createCylinder(radius: number, height: number, color: number): THREE.Mesh {
+        const geometry = new THREE.CylinderGeometry(radius, radius, height, 16);
+        const material = new THREE.MeshStandardMaterial({
+            color: color,
+            metalness: 0.3,
+            roughness: 0.4
+        });
+        return new THREE.Mesh(geometry, material);
+    }
+    
     private createDirectPath(startPos: THREE.Vector3, endPos: THREE.Vector3): THREE.Vector3[] {
         const segments = 8;
         const points: THREE.Vector3[] = [];
@@ -882,16 +737,6 @@ export default class WorkflowVisualizer extends XRWorld {
         points.push(endPos.clone());
 
         return points;
-    }
-
-    private createCylinder(radius: number, height: number, color: number): THREE.Mesh {
-        const geometry = new THREE.CylinderGeometry(radius, radius, height, 16);
-        const material = new THREE.MeshStandardMaterial({
-            color: color,
-            metalness: 0.3,
-            roughness: 0.4
-        });
-        return new THREE.Mesh(geometry, material);
     }
 
 }

@@ -5,7 +5,6 @@ import { numericalWorkflow_1, numericalWorkflow_2 } from 'updohilo/dist/mocks/mo
 import { useEffect, useRef } from 'react';
 
 
-
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -47,7 +46,7 @@ export default function Home() {
       /* const toolProof = new ToolProof(containerRef.current);
       await toolProof.init(); */
 
-      const workflowsWorld = new Workflows(containerRef.current, numericalWorkflow_1);
+      const workflowsWorld = new Workflows(containerRef.current, numericalWorkflow_2);
       await workflowsWorld.init();
 
       // Cleanup on unmount

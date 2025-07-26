@@ -1,10 +1,9 @@
+'use client';
 import WorkflowBuilder from '@/components/workflow-builder/WorkflowBuilder';
 
-
-export default function Home() {
-
+export default function WorkflowBuilderPage() {
     return (
-        <div>
+        <div className="h-screen">
             <WorkflowBuilder />
         </div>
     );
