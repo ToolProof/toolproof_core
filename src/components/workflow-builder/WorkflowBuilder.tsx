@@ -1,10 +1,11 @@
 'use client';
-import { mockJobs_1 } from './mockJobs';
-import { Job, WorkflowNode, FakeStepInputs } from './types';
+import { numericalJobs } from 'updohilo/dist/mocks/mocks';
+import { validateWorkflow } from 'updohilo/dist/utils';
+import { Workflow, Job } from 'updohilo/dist/types/typesWF';
 import WorkflowHeader from './WorkflowHeader';
 import AvailableJobsPanel from './AvailableJobsPanel';
 import WorkflowStepsPanel from './WorkflowStepsPanel';
-import { Workflows } from '@/xr/worlds/workflowVisualizer/WorkflowVisualizer';
+import WorkflowVisualizer from '@/xr/worlds/workflowVisualizer/WorkflowVisualizer';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 export default function WorkflowBuilder() {
@@ -14,16 +15,6 @@ export default function WorkflowBuilder() {
     const [workflowName, setWorkflowName] = useState('');
     const [fakeStepInputs, setFakeStepInputs] = useState<FakeStepInputs>({});
     const [show3D, setShow3D] = useState(false);
-
-    // Dummy file options for the fake step selector
-    const availableFiles = {
-        anchor: ['anchor_1.pdb', 'anchor_2.pdb', 'anchor_3.pdb'],
-        target: ['target_1.pdb', 'target_2.pdb', 'target_3.pdb'],
-        box: ['box_1.txt', 'box_2.txt', 'box_3.txt'],
-        candidate: ['candidate_1.pdb', 'candidate_2.pdb'],
-        docking: ['docking_1.dat', 'docking_2.dat'],
-        pose: ['pose_1.pdb', 'pose_2.pdb']
-    };
 
     const getWorkflowConnections = useCallback(() => {
         const connections: { from: string; to: string; output: string; input: string }[] = [];
@@ -121,7 +112,7 @@ export default function WorkflowBuilder() {
                         },
                         syntacticSpec: {
                             inputs: [],
-                            outputs: missingInputs.map(input => ({ 
+                            outputs: missingInputs.map(input => ({
                                 id: `fake-${input}`,
                                 displayName: input,
                                 semanticSpec: {
@@ -145,13 +136,13 @@ export default function WorkflowBuilder() {
                 if (currentFakeStep && JSON.stringify(currentFakeStep.job.syntacticSpec.outputs.map(o => o.displayName).sort()) !== JSON.stringify(missingInputs.sort())) {
                     setWorkflowNodes(prev => prev.map(step =>
                         step.isFakeStep
-                            ? { 
-                                ...step, 
-                                job: { 
-                                    ...step.job, 
+                            ? {
+                                ...step,
+                                job: {
+                                    ...step.job,
                                     syntacticSpec: {
                                         ...step.job.syntacticSpec,
-                                        outputs: missingInputs.map(input => ({ 
+                                        outputs: missingInputs.map(input => ({
                                             id: `fake-${input}`,
                                             displayName: input,
                                             semanticSpec: {
@@ -164,7 +155,7 @@ export default function WorkflowBuilder() {
                                             }
                                         }))
                                     }
-                                } 
+                                }
                             }
                             : step
                     ));

@@ -1,4 +1,4 @@
-import { Workflow, WorkflowNode, Job, ResourceType } from 'updohilo/dist/types';
+import { Workflow, Job, ResourceType } from 'updohilo/dist/types/typesWF';
 // import { XRWorld, TransientSelection } from 'metaverse/dist/XRWorld';
 import { XRWorld, TransientSelection } from '../../XRWorld';
 import * as THREE from 'three';
@@ -8,7 +8,7 @@ interface WorkflowNodeWithMesh extends WorkflowNode {
     mesh: THREE.Mesh;
 }
 
-class WorkflowVisualizer extends XRWorld {
+export default class WorkflowVisualizer extends XRWorld {
     private nodes: WorkflowNodeWithMesh[] = [];
     private connectionObjects: THREE.Object3D[] = []; // Changed to handle any 3D object
     private mouse: THREE.Vector2 = new THREE.Vector2();
@@ -895,6 +895,3 @@ class WorkflowVisualizer extends XRWorld {
     }
 
 }
-
-
-export { WorkflowVisualizer as Workflows };

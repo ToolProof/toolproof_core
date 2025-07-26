@@ -1,4 +1,4 @@
-import { Job, FakeStepInputs } from './types';
+import { Job } from 'updohilo/dist/types/typesWF';
 
 interface FakeStepComponentProps {
     job: Job;

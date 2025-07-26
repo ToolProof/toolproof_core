@@ -13,7 +13,7 @@ interface DataObjectWithMesh extends DataObject {
     mesh: THREE.Mesh;
 }
 
-class ToolProof extends XRWorld {
+export default class ToolProof extends XRWorld {
     private dataObjects: DataObjectWithMesh[] = [];
     private lines: { innerSphereName: string, innerSphereId: string, outerSphereId: string }[] = [];
     private mouse: THREE.Vector2 = new THREE.Vector2();
@@ -650,6 +650,3 @@ class ToolProof extends XRWorld {
     }
 
 }
-
-
-export { ToolProof };

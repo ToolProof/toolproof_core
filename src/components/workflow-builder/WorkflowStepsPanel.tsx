@@ -1,6 +1,6 @@
 import FakeStepComponent from './FakeStepComponent';
 import RegularStepComponent from './RegularStepComponent';
-import { Job, WorkflowNode, FakeStepInputs } from './types';
+import { Job } from 'updohilo/dist/types/typesWF';
 
 interface WorkflowNodesPanelProps {
     workflowNodes: WorkflowNode[];
@@ -58,7 +58,7 @@ export default function WorkflowNodesPanel({
                                         onRemove={() => onRemoveStep(step.job.id)}
                                     />
                                 )}
-                                
+
                                 {/* Connection arrow */}
                                 {index < workflowNodes.length - 1 && (
                                     <div className="flex justify-center py-2">

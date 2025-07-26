@@ -1,4 +1,4 @@
-import { Job } from './types';
+import { Job } from 'updohilo/dist/types/typesWF';
 
 interface RegularStepComponentProps {
     job: Job;
