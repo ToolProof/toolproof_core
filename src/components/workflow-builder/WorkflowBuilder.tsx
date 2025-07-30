@@ -16,6 +16,7 @@ interface ValidationResult {
     initialInputs: string[];
 }
 
+// ATTENTION_RONAK_#: Here I want you to build the validation logic from validateWorkflow (please extend it) into the WorkflowBuilder component
 export default function WorkflowBuilder() {
     const containerRef = useRef<HTMLDivElement>(null);
     const [workflow, setWorkflow] = useState<Workflow>({
