@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Job, Workflow, WorkflowStepUnion, SimpleWorkflowStep } from 'updohilo/dist/types/typesWF';
-import { numericalJobs } from 'updohilo/dist/mocks/mocks';
+import { Job, Workflow, WorkflowStep } from 'updohilo/dist/types/typesWF';
+import { calculatorJobs } from 'updohilo/dist/mocks/calculator';
+import { adapterAutodockJobs } from 'updohilo/dist/mocks/adapter_autodock';
 import { validateWorkflow } from 'updohilo/dist/utils';
 import WorkflowCanvas from './WorkflowCanvas';
 import JobLibrary from './JobLibrary';
@@ -21,9 +22,9 @@ export default function WorkflowBuilder() {
         id: uuidv4(),
         steps: []
     });
-    
-    const [selectedStep, setSelectedStep] = useState<WorkflowStepUnion | null>(null);
-    const [availableJobs] = useState<Job[]>(Array.from(numericalJobs.values()));
+
+    const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
+    const [availableJobs] = useState<Job[]>(Array.from(calculatorJobs.values()));
     const [draggedJob, setDraggedJob] = useState<Job | null>(null);
     const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
     const [workflowName, setWorkflowName] = useState('Untitled Workflow');
@@ -64,14 +65,11 @@ export default function WorkflowBuilder() {
     }, [workflow, show3D, availableJobs]);
 
     const handleAddSimpleStep = useCallback((job: Job, position?: { x: number; y: number }) => {
-        const newStep: SimpleWorkflowStep = {
-            type: 'simple',
-            step: {
-                id: uuidv4(),
-                jobId: job.id,
-                dataExchanges: [],
-                resultBindings: {}
-            }
+        const newStep: WorkflowStep = {
+            id: uuidv4(),
+            jobId: job.id,
+            inputBindings: {},
+            outputBindings: {}
         };
 
         setWorkflow(prev => ({
@@ -84,9 +82,13 @@ export default function WorkflowBuilder() {
     }, []);
 
     const handleAddParallelStep = useCallback(() => {
-        const newStep: WorkflowStepUnion = {
-            type: 'parallel',
-            branches: [[], []] // Start with two empty branches
+        // For now, we'll create a simple step that can be configured for parallel execution
+        // This could be enhanced to support the new type system's approach to parallelism
+        const newStep: WorkflowStep = {
+            id: uuidv4(),
+            jobId: '', // Will need to be configured
+            inputBindings: {},
+            outputBindings: {}
         };
 
         setWorkflow(prev => ({
@@ -98,12 +100,13 @@ export default function WorkflowBuilder() {
     }, []);
 
     const handleAddConditionalStep = useCallback(() => {
-        const newStep: WorkflowStepUnion = {
-            type: 'conditional',
-            branches: [{
-                condition: { op: 'always' },
-                steps: []
-            }]
+        // Create a step with a branching condition
+        const newStep: WorkflowStep = {
+            id: uuidv4(),
+            jobId: '', // Will need to be configured
+            inputBindings: {},
+            outputBindings: {},
+            branchingCondition: { op: 'always' }
         };
 
         setWorkflow(prev => ({
@@ -114,29 +117,29 @@ export default function WorkflowBuilder() {
         setSelectedStep(newStep);
     }, []);
 
-    const handleUpdateStep = useCallback((updatedStep: WorkflowStepUnion) => {
+    const handleUpdateStep = useCallback((updatedStep: WorkflowStep) => {
         setWorkflow(prev => ({
             ...prev,
-            steps: prev.steps.map(step => 
+            steps: prev.steps.map(step =>
                 step === selectedStep ? updatedStep : step
             )
         }));
         setSelectedStep(updatedStep);
     }, [selectedStep]);
 
-    const handleDeleteStep = useCallback((stepToDelete: WorkflowStepUnion) => {
+    const handleDeleteStep = useCallback((stepToDelete: WorkflowStep) => {
         setWorkflow(prev => ({
             ...prev,
             steps: prev.steps.filter(step => step !== stepToDelete)
         }));
-        
+
         if (selectedStep === stepToDelete) {
             setSelectedStep(null);
             setShowPropertiesPanel(false);
         }
     }, [selectedStep]);
 
-    const handleStepClick = useCallback((step: WorkflowStepUnion) => {
+    const handleStepClick = useCallback((step: WorkflowStep) => {
         setSelectedStep(step);
         setShowPropertiesPanel(true);
     }, []);
@@ -153,14 +156,14 @@ export default function WorkflowBuilder() {
             createdAt: new Date().toISOString(),
             validation: validationResult
         };
-        
+
         console.log('Exported Workflow:', exportData);
-        
+
         // Create downloadable JSON file
         const dataStr = JSON.stringify(exportData, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
         const exportFileDefaultName = `${workflowName.replace(/\s+/g, '_')}.json`;
-        
+
         const linkElement = document.createElement('a');
         linkElement.setAttribute('href', dataUri);
         linkElement.setAttribute('download', exportFileDefaultName);
@@ -220,7 +223,7 @@ export default function WorkflowBuilder() {
                     </div>
                 )}
             </div>
-            
+
             {/* Fullscreen 3D overlay */}
             {show3D && (
                 <div

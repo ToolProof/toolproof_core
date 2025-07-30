@@ -1,7 +1,7 @@
 'use client';
 import ToolProof from '@/xr/worlds/toolproof/ToolProof';
 import Workflows from '@/xr/worlds/workflowVisualizer/WorkflowVisualizer';
-import { numericalWorkflow_1, numericalWorkflow_2 } from 'updohilo/dist/mocks/mocks';
+import { calculatorWorkflowSpec_1, calculatorWorkflowSpec_2 } from 'updohilo/dist/mocks/calculator';
 import { useEffect, useRef } from 'react';
 
 
@@ -46,7 +46,7 @@ export default function Home() {
       /* const toolProof = new ToolProof(containerRef.current);
       await toolProof.init(); */
 
-      const workflowsWorld = new Workflows(containerRef.current, numericalWorkflow_2);
+      const workflowsWorld = new Workflows(containerRef.current, calculatorWorkflowSpec_1);
       await workflowsWorld.init();
 
       // Cleanup on unmount

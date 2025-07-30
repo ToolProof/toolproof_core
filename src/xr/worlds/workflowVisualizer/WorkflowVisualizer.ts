@@ -1,22 +1,15 @@
-import { 
-    Workflow, 
-    Job, 
-    ResourceType, 
-    WorkflowStepUnion, 
-    SimpleWorkflowStep, 
-    ParallelWorkflowStep, 
-    ConditionalWorkflowStep, 
-    WhileLoopWorkflowStep, 
-    ForLoopWorkflowStep,
-    WorkflowStep,
-    DataExchange 
+import {
+    Workflow,
+    Job,
+    ResourceType,
+    WorkflowStep
 } from 'updohilo/dist/types/typesWF';
 // import { XRWorld, TransientSelection } from 'metaverse/dist/XRWorld';
 import { XRWorld, TransientSelection } from '../../XRWorld';
 import * as THREE from 'three';
 
 interface StepVisualData {
-    stepUnion: WorkflowStepUnion;
+    stepUnion: WorkflowStep;
     mesh: THREE.Mesh;
     job?: Job;
     level: number;
@@ -466,65 +459,40 @@ export default class WorkflowVisualizer extends XRWorld {
     private createWorkflowVisualization(workflow: Workflow) {
         // For now, create a simplified visualization
         // This is a basic implementation that can be expanded
-        
+
         const stepPositions = this.calculateStepPositions(workflow.steps);
-        
+
         stepPositions.forEach((position, index) => {
             this.createStepVisualization(position.step, position.x, position.y, position.z, index);
         });
-        
+
         // Create connections between steps
         this.createStepConnections(workflow.steps, stepPositions);
     }
-    
-    private calculateStepPositions(steps: WorkflowStepUnion[]): Array<{step: WorkflowStepUnion, x: number, y: number, z: number}> {
-        const positions: Array<{step: WorkflowStepUnion, x: number, y: number, z: number}> = [];
+
+    private calculateStepPositions(steps: WorkflowStep[]): Array<{ step: WorkflowStep, x: number, y: number, z: number }> {
+        const positions: Array<{ step: WorkflowStep, x: number, y: number, z: number }> = [];
         const horizontalSpacing = 15;
         const verticalSpacing = 8;
-        
+
         steps.forEach((step, index) => {
             const x = index * horizontalSpacing;
             const y = 0;
             const z = 0;
-            
+
             positions.push({ step, x, y, z });
         });
-        
+
         return positions;
     }
-    
-    private createStepVisualization(step: WorkflowStepUnion, x: number, y: number, z: number, index: number) {
+
+    private createStepVisualization(step: WorkflowStep, x: number, y: number, z: number, index: number) {
         const sphereRadius = 2;
-        
-        let color = 0x0066cc; // Default blue
-        let stepId = `step-${index}`;
-        let job: Job | undefined;
-        
-        // Determine color and properties based on step type
-        switch (step.type) {
-            case 'simple':
-                color = 0x0066cc; // Blue for simple steps
-                stepId = step.step.id;
-                job = this.availableJobs.get(step.step.jobId);
-                break;
-            case 'parallel':
-                color = 0x6600cc; // Purple for parallel
-                stepId = `parallel-${index}`;
-                break;
-            case 'conditional':
-                color = 0xcc6600; // Orange for conditional
-                stepId = `conditional-${index}`;
-                break;
-            case 'while':
-                color = 0x00cc66; // Green for while loops
-                stepId = `while-${index}`;
-                break;
-            case 'for':
-                color = 0xcc0066; // Pink for for loops
-                stepId = `for-${index}`;
-                break;
-        }
-        
+
+        const color = 0x0066cc; // Blue for all steps in new structure
+        const stepId = step.id;
+        const job: Job | undefined = this.availableJobs.get(step.jobId);
+
         // Create main sphere
         const sphereGeometry = new THREE.SphereGeometry(sphereRadius, 32, 32);
         const sphereMaterial = new THREE.MeshStandardMaterial({
@@ -533,21 +501,21 @@ export default class WorkflowVisualizer extends XRWorld {
             roughness: 0.4
         });
         const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
-        
+
         sphere.position.set(x, y, z);
-        
+
         // Set userData for interaction
         sphere.userData = {
             type: 'resource',
-            name: job?.name || step.type,
-            description: job?.semanticSpec.description || `${step.type} step`,
+            name: job?.name || 'workflow step',
+            description: job?.semanticSpec.description || 'workflow step',
             jobId: job?.id,
             stepId: stepId,
-            stepType: step.type
+            stepType: 'simple'
         };
-        
+
         (this as any).scene.add(sphere);
-        
+
         // Store the step visual data
         this.stepVisuals.push({
             stepUnion: step,
@@ -557,84 +525,84 @@ export default class WorkflowVisualizer extends XRWorld {
             indexInLevel: index,
             stepId: stepId
         });
-        
-        // Create input/output stubs for simple steps
-        if (step.type === 'simple' && job) {
+
+        // Create input/output stubs for steps that have a job
+        if (job) {
             this.createStepInputOutputStubs(job, x, y, z, stepId);
         }
     }
-    
+
     private createStepInputOutputStubs(job: Job, centerX: number, centerY: number, centerZ: number, stepId: string) {
         const sphereRadius = 2;
         const stubRadius = 0.15;
         const stubLength = 0.8;
         const stubSpacing = 0.8;
-        
+
         // Create input stubs (green cylinders on the left)
         job.syntacticSpec.inputs.forEach((input, inputIndex) => {
             const inputStub = this.createCylinder(stubRadius, stubLength, 0x00ff00);
-            
+
             const totalInputs = job.syntacticSpec.inputs.length;
             const inputY = centerY + (inputIndex - (totalInputs - 1) / 2) * stubSpacing;
             const inputX = centerX - sphereRadius - stubLength / 2;
             const inputZ = centerZ;
-            
+
             inputStub.position.set(inputX, inputY, inputZ);
             inputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
-            
+
             inputStub.userData = {
                 type: 'input',
                 name: input.role.name,
                 jobId: job.id,
                 stepId: stepId
             };
-            
+
             (this as any).scene.add(inputStub);
         });
-        
+
         // Create output stubs (red cylinders on the right)
         job.syntacticSpec.outputs.forEach((output, outputIndex) => {
             const outputStub = this.createCylinder(stubRadius, stubLength, 0xff0000);
-            
+
             const totalOutputs = job.syntacticSpec.outputs.length;
             const outputY = centerY + (outputIndex - (totalOutputs - 1) / 2) * stubSpacing;
             const outputX = centerX + sphereRadius + stubLength / 2;
             const outputZ = centerZ;
-            
+
             outputStub.position.set(outputX, outputY, outputZ);
             outputStub.rotation.z = Math.PI / 2; // Rotate to horizontal
-            
+
             outputStub.userData = {
                 type: 'output',
                 name: output.role.name,
                 jobId: job.id,
                 stepId: stepId
             };
-            
+
             (this as any).scene.add(outputStub);
         });
     }
-    
-    private createStepConnections(steps: WorkflowStepUnion[], positions: Array<{step: WorkflowStepUnion, x: number, y: number, z: number}>) {
+
+    private createStepConnections(steps: WorkflowStep[], positions: Array<{ step: WorkflowStep, x: number, y: number, z: number }>) {
         // Create simple sequential connections for now
         // In a full implementation, this would analyze the dataExchanges in each step
-        
+
         for (let i = 0; i < positions.length - 1; i++) {
             const fromPos = positions[i];
             const toPos = positions[i + 1];
-            
+
             const startPoint = new THREE.Vector3(fromPos.x + 2, fromPos.y, fromPos.z);
             const endPoint = new THREE.Vector3(toPos.x - 2, toPos.y, toPos.z);
-            
+
             const connection = this.createSimpleConnection(startPoint, endPoint);
             (this as any).scene.add(connection);
             this.connectionObjects.push(connection);
         }
     }
-    
+
     private createSimpleConnection(startPos: THREE.Vector3, endPos: THREE.Vector3): THREE.Group {
         const group = new THREE.Group();
-        
+
         // Create a simple line connection
         const geometry = new THREE.BufferGeometry().setFromPoints([startPos, endPos]);
         const material = new THREE.LineBasicMaterial({
@@ -643,26 +611,26 @@ export default class WorkflowVisualizer extends XRWorld {
             transparent: true,
             opacity: 0.7
         });
-        
+
         const line = new THREE.Line(geometry, material);
         group.add(line);
-        
+
         // Add arrow at the end
         const arrowGeometry = new THREE.ConeGeometry(0.2, 0.5, 8);
         const arrowMaterial = new THREE.MeshStandardMaterial({ color: 0x00ffff });
         const arrow = new THREE.Mesh(arrowGeometry, arrowMaterial);
-        
+
         // Position and orient the arrow
         arrow.position.copy(endPos);
         const direction = new THREE.Vector3().subVectors(endPos, startPos).normalize();
         arrow.lookAt(endPos.clone().add(direction));
         arrow.rotateX(Math.PI / 2);
-        
+
         group.add(arrow);
-        
+
         return group;
     }
-    
+
     private createCylinder(radius: number, height: number, color: number): THREE.Mesh {
         const geometry = new THREE.CylinderGeometry(radius, radius, height, 16);
         const material = new THREE.MeshStandardMaterial({
@@ -672,7 +640,7 @@ export default class WorkflowVisualizer extends XRWorld {
         });
         return new THREE.Mesh(geometry, material);
     }
-    
+
     private createDirectPath(startPos: THREE.Vector3, endPos: THREE.Vector3): THREE.Vector3[] {
         const segments = 8;
         const points: THREE.Vector3[] = [];

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Workflow } from 'updohilo/dist/types/typesWF';
 
 interface ConnectionLinesProps {

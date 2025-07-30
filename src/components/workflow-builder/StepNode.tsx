@@ -1,9 +1,9 @@
 import React from 'react';
-import { Job, WorkflowStepUnion } from 'updohilo/dist/types/typesWF';
+import { Job, WorkflowStep } from 'updohilo/dist/types/typesWF';
 import { TrashIcon, CubeIcon } from '@heroicons/react/24/outline';
 
 interface StepNodeProps {
-    step: WorkflowStepUnion;
+    step: WorkflowStep;
     position: { x: number; y: number };
     isSelected: boolean;
     onClick: () => void;
@@ -19,11 +19,7 @@ export default function StepNode({
     onDelete,
     availableJobs
 }: StepNodeProps) {
-    if (step.type !== 'simple') {
-        return null; // This component only handles simple steps
-    }
-
-    const job = availableJobs.find(j => j.id === step.step.jobId);
+    const job = availableJobs.find(j => j.id === step.jobId);
     
     if (!job) {
         return (
@@ -33,7 +29,7 @@ export default function StepNode({
                 onClick={onClick}
             >
                 <div className="text-red-700 text-sm font-medium">
-                    Job not found: {step.step.jobId}
+                    Job not found: {step.jobId}
                 </div>
             </div>
         );
@@ -99,17 +95,17 @@ export default function StepNode({
                 )}
             </div>
 
-            {/* Data Exchanges indicator */}
-            {step.step.dataExchanges.length > 0 && (
+            {/* Input Bindings indicator */}
+            {Object.keys(step.inputBindings).length > 0 && (
                 <div className="mt-2 text-xs text-green-600">
-                    ✓ {step.step.dataExchanges.length} connection(s)
+                    ✓ {Object.keys(step.inputBindings).length} input binding(s)
                 </div>
             )}
 
-            {/* Result Bindings indicator */}
-            {Object.keys(step.step.resultBindings).length > 0 && (
+            {/* Output Bindings indicator */}
+            {Object.keys(step.outputBindings).length > 0 && (
                 <div className="mt-1 text-xs text-blue-600">
-                    → {Object.keys(step.step.resultBindings).length} output binding(s)
+                    → {Object.keys(step.outputBindings).length} output binding(s)
                 </div>
             )}
         </div>
