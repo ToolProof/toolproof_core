@@ -16,7 +16,7 @@ interface ValidationResult {
     initialInputs: string[];
 }
 
-// ATTENTION_RONAK_#: Here I want you to build the validation logic from validateWorkflow (please extend it) into the WorkflowBuilder component
+// ATTENTION_RONAK_#: Here I want you to build the validation logic from validateWorkflow (please extend it) into the WorkflowBuilder component and create a 'Workflow Compiler' that can output a WorkflowSpec (see typesWF in updohilo-ts)
 export default function WorkflowBuilder() {
     const containerRef = useRef<HTMLDivElement>(null);
     const [workflow, setWorkflow] = useState<Workflow>({
