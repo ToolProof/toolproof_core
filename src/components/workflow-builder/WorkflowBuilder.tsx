@@ -150,25 +150,54 @@ export default function WorkflowBuilder() {
         setShowPropertiesPanel(false);
     }, []);
 
-    const handleExportWorkflow = useCallback(() => {
-        const exportData = {
-            workflow,
-            name: workflowName,
-            createdAt: new Date().toISOString(),
-            validation: validationResult
-        };
+    const handleExportWorkflow = useCallback(async () => {
+        try {
+            // Call the workflow compilation API
+            const response = await fetch('/api/workflow/compile', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    workflow
+                }),
+            });
 
-        console.log('Exported Workflow:', exportData);
+            if (!response.ok) {
+                throw new Error('Failed to compile workflow');
+            }
 
-        // Create downloadable JSON file
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-        const exportFileDefaultName = `${workflowName.replace(/\s+/g, '_')}.json`;
+            const result = await response.json();
 
-        const linkElement = document.createElement('a');
-        linkElement.setAttribute('href', dataUri);
-        linkElement.setAttribute('download', exportFileDefaultName);
-        linkElement.click();
+            if (!result.success) {
+                throw new Error(result.error || 'Compilation failed');
+            }
+
+            const exportData = {
+                originalWorkflow: workflow,
+                compiledWorkflow: result.compiledWorkflow,
+                name: workflowName,
+                createdAt: new Date().toISOString(),
+                validation: validationResult
+            };
+
+            console.log('Exported Workflow:', exportData);
+            console.log('Compiled Workflow:', result.compiledWorkflow);
+
+            // Create downloadable JSON file with both original and compiled workflows
+            // const dataStr = JSON.stringify(exportData, null, 2);
+            // const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            // const exportFileDefaultName = `${workflowName.replace(/\s+/g, '_')}_compiled.json`;
+
+            // const linkElement = document.createElement('a');
+            // linkElement.setAttribute('href', dataUri);
+            // linkElement.setAttribute('download', exportFileDefaultName);
+            // linkElement.click();
+
+        } catch (error) {
+            console.error('Error exporting workflow:', error);
+            alert('Failed to export workflow. Please check the console for details.');
+        }
     }, [workflow, workflowName, validationResult]);
 
     return (

@@ -1,31 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
-
-// Types for the frontend workflow
-interface FrontendWorkflow {
-    id: string;
-    steps: FrontendWorkflowStep[];
-}
-
-interface FrontendWorkflowStep {
-    id: string;
-    jobId: string;
-    inputBindings: Record<string, string>;
-    outputBindings: Record<string, string>;
-}
-
-// Types for the compiled workflow
-interface CompiledWorkflow {
-    id: string;
-    steps: CompiledWorkflowStep[];
-}
-
-interface CompiledWorkflowStep {
-    id: string;
-    jobId: string;
-    inputBindings: Record<string, string>;
-    outputBindings: Record<string, string>;
-}
+import { Workflow, WorkflowSpec, WorkflowStep } from 'updohilo/dist/types/typesWF';
+import { calculatorJobs } from 'updohilo/dist/mocks/calculator';
 
 // Job definitions for input/output mapping
 const JOB_DEFINITIONS: Record<string, { inputs: string[], outputs: string[] }> = {
@@ -50,8 +25,8 @@ const JOB_DEFINITIONS: Record<string, { inputs: string[], outputs: string[] }> =
 // External input names for the workflow
 const EXTERNAL_INPUTS = ['num_alpha', 'num_beta', 'num_gamma', 'num_delta', 'num_epsilon'];
 
-function compileWorkflow(frontendWorkflow: FrontendWorkflow): CompiledWorkflow {
-    const compiledSteps: CompiledWorkflowStep[] = [];
+function compileWorkflow(frontendWorkflow: Workflow): WorkflowSpec {
+    const compiledSteps: WorkflowStep[] = [];
     const availableOutputs: string[] = [];
     const outputCounters: Record<string, number> = {};
     let externalInputIndex = 0;
@@ -62,7 +37,7 @@ function compileWorkflow(frontendWorkflow: FrontendWorkflow): CompiledWorkflow {
             throw new Error(`Unknown job: ${step.jobId}`);
         }
 
-        const compiledStep: CompiledWorkflowStep = {
+        const compiledStep: WorkflowStep = {
             id: step.id,
             jobId: step.jobId,
             inputBindings: {},
@@ -109,15 +84,20 @@ function compileWorkflow(frontendWorkflow: FrontendWorkflow): CompiledWorkflow {
     });
 
     return {
-        id: frontendWorkflow.id,
-        steps: compiledSteps
+        // id: frontendWorkflow.id,
+        workflow: {
+            id: frontendWorkflow.id,
+            steps: compiledSteps
+        },
+        resourceMaps: [],
+        counter: 0
     };
 }
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const frontendWorkflow: FrontendWorkflow = body.workflow;
+        const frontendWorkflow: Workflow = body.workflow;
 
         if (!frontendWorkflow || !frontendWorkflow.steps) {
             return NextResponse.json(
