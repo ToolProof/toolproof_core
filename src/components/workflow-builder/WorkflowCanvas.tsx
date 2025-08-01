@@ -52,7 +52,7 @@ export default function WorkflowCanvas({
     }, []);
 
     const renderStep = (step: WorkflowStep, index: number) => {
-        const baseY = 100 + index * 200;
+        const baseY = 50 + (index) * 250;
         const baseX = 50;
 
         return (

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Workflow, WorkflowSpec, WorkflowStep } from 'updohilo/dist/types/typesWF';
+import { Workflow, WorkflowSpec, WorkflowStep, ResourceMap } from 'updohilo/dist/types/typesWF';
 import { calculatorJobs } from 'updohilo/dist/mocks/calculator';
 
 // Job definitions for input/output mapping
@@ -27,9 +27,7 @@ const EXTERNAL_INPUTS = ['num_alpha', 'num_beta', 'num_gamma', 'num_delta', 'num
 
 function compileWorkflow(frontendWorkflow: Workflow): WorkflowSpec {
     const compiledSteps: WorkflowStep[] = [];
-    const availableOutputs: string[] = [];
-    const outputCounters: Record<string, number> = {};
-    let externalInputIndex = 0;
+    const resourceMaps: ResourceMap = {};
 
     frontendWorkflow.steps.forEach((step, stepIndex) => {
         const jobDef = JOB_DEFINITIONS[step.jobId];
@@ -40,56 +38,80 @@ function compileWorkflow(frontendWorkflow: Workflow): WorkflowSpec {
         const compiledStep: WorkflowStep = {
             id: step.id,
             jobId: step.jobId,
-            inputBindings: {},
-            outputBindings: {}
+            inputBindings: step.inputBindings || {},
+            outputBindings: step.outputBindings || {}
         };
 
-        // Handle input bindings
-        jobDef.inputs.forEach((inputName, inputIndex) => {
-            let inputSource: string;
+        // If no input bindings are provided by user, auto-generate them
+        if (Object.keys(compiledStep.inputBindings).length === 0) {
+            jobDef.inputs.forEach((inputName, inputIndex) => {
+                const externalInputKey = EXTERNAL_INPUTS[inputIndex % EXTERNAL_INPUTS.length];
+                compiledStep.inputBindings[inputName] = externalInputKey;
 
-            // For the first step, use external inputs
-            if (stepIndex === 0) {
-                inputSource = EXTERNAL_INPUTS[externalInputIndex % EXTERNAL_INPUTS.length];
-                externalInputIndex++;
-            } else {
-                // For subsequent steps, use a mix of previous outputs and external inputs
-                if (inputIndex === 0 && availableOutputs.length > 0) {
-                    // First input: prefer the most recent output from previous step
-                    inputSource = availableOutputs[availableOutputs.length - 1];
-                } else {
-                    // Other inputs: use external inputs
-                    inputSource = EXTERNAL_INPUTS[externalInputIndex % EXTERNAL_INPUTS.length];
-                    externalInputIndex++;
+                // Add to resourceMaps if it's an external input
+                if (!resourceMaps[externalInputKey]) {
+                    resourceMaps[externalInputKey] = {
+                        path: `calculator/_inputs/${externalInputKey}.json`
+                    };
                 }
-            }
+            });
+        } else {
+            // Process user-defined input bindings
+            Object.entries(compiledStep.inputBindings).forEach(([inputRole, inputValue]) => {
+                if (typeof inputValue === 'string') {
+                    let resourceKey: string;
+                    let resourcePath: string;
 
-            compiledStep.inputBindings[inputName] = inputSource;
-        });
+                    if (inputValue.includes('/')) {
+                        // It's a file path like "calculator/_inputs/num_1.json"
+                        // Extract the filename without extension to use as key
+                        const filename = inputValue.split('/').pop() || inputValue;
+                        resourceKey = filename.replace('.json', '');
+                        resourcePath = inputValue;
 
-        // Handle output bindings and track available outputs
-        jobDef.outputs.forEach((outputName) => {
-            // Increment counter for this output type
-            if (!outputCounters[outputName]) {
-                outputCounters[outputName] = 0;
-            }
-            outputCounters[outputName]++;
+                        // Update the input binding to use the simple key
+                        compiledStep.inputBindings[inputRole] = resourceKey;
+                    } else if (inputValue.startsWith('num_') || inputValue.includes('_')) {
+                        // It's an external input like "num_alpha" or output like "sum_1"
+                        if (inputValue.startsWith('num_')) {
+                            resourceKey = inputValue;
+                            resourcePath = `calculator/_inputs/${inputValue}.json`;
+                        } else {
+                            // It's a reference to a previous step output, don't add to resourceMaps
+                            return;
+                        }
+                    } else {
+                        // Default case
+                        resourceKey = inputValue;
+                        resourcePath = `calculator/_inputs/${inputValue}.json`;
+                    }
 
-            const outputKey = `${outputName}_${outputCounters[outputName]}`;
-            compiledStep.outputBindings[outputName] = outputKey;
-            availableOutputs.push(outputKey);
-        });
+                    if (!resourceMaps[resourceKey]) {
+                        resourceMaps[resourceKey] = {
+                            path: resourcePath
+                        };
+                    }
+                }
+            });
+        }
+
+        // If no output bindings are provided by user, auto-generate them
+        if (Object.keys(compiledStep.outputBindings).length === 0) {
+            jobDef.outputs.forEach((outputName) => {
+                const outputKey = `${outputName}_${stepIndex + 1}`;
+                compiledStep.outputBindings[outputName] = outputKey;
+            });
+        }
 
         compiledSteps.push(compiledStep);
     });
 
     return {
-        // id: frontendWorkflow.id,
         workflow: {
             id: frontendWorkflow.id,
             steps: compiledSteps
         },
-        resourceMaps: [],
+        resourceMaps: [resourceMaps],
         counter: 0
     };
 }

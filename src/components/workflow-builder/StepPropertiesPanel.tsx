@@ -44,6 +44,27 @@ export default function StepPropertiesPanel({
             });
         };
 
+        // Get available outputs from previous steps
+        const getAvailableOutputs = () => {
+            const outputs: string[] = [];
+            const currentStepIndex = workflow.steps.findIndex(s => s.id === localStep.id);
+
+            for (let i = 0; i < currentStepIndex; i++) {
+                const prevStep = workflow.steps[i];
+                const prevJob = availableJobs.find(j => j.id === prevStep.jobId);
+                if (prevJob && prevStep.outputBindings) {
+                    Object.values(prevStep.outputBindings).forEach(output => {
+                        if (typeof output === 'string') {
+                            outputs.push(output);
+                        }
+                    });
+                }
+            }
+            return outputs;
+        };
+
+        const availableOutputs = getAvailableOutputs();
+
         const updateOutputBinding = (role: string, binding: string) => {
             const newBindings = { ...localStep.outputBindings };
             if (binding) {
@@ -68,23 +89,25 @@ export default function StepPropertiesPanel({
                 <div>
                     <h4 className="text-md font-medium text-gray-800 mb-3">Input Bindings</h4>
                     {job.syntacticSpec.inputs.map(input => (
-                        <div key={input.role.id} className="flex items-center space-x-3 mb-2">
-                            <div className="flex-1">
-                                <div className="text-xs font-medium text-gray-700">
-                                    {input.role.name}
+                        <div key={input.role.id} className="mb-4">
+                            <div className="flex items-center space-x-3 mb-2">
+                                <div className="flex-1">
+                                    <div className="text-xs font-medium text-gray-700">
+                                        {input.role.name}
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        {input.type.name}
+                                    </div>
                                 </div>
-                                <div className="text-xs text-gray-500">
-                                    {input.type.name}
+                                <div className="flex-1">
+                                    <input
+                                        type="text"
+                                        value={localStep.inputBindings[input.role.name] || ''}
+                                        onChange={(e) => updateInputBinding(input.role.name, e.target.value)}
+                                        placeholder="e.g., num_alpha or sum_1 or calculator/_inputs/num_1.json"
+                                        className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                                    />
                                 </div>
-                            </div>
-                            <div className="flex-1">
-                                <input
-                                    type="text"
-                                    value={localStep.inputBindings[input.role.name] || ''}
-                                    onChange={(e) => updateInputBinding(input.role.name, e.target.value)}
-                                    placeholder="Resource name or alias..."
-                                    className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-                                />
                             </div>
                         </div>
                     ))}
@@ -113,7 +136,7 @@ export default function StepPropertiesPanel({
                                     type="text"
                                     value={localStep.outputBindings[output.role.name] || ''}
                                     onChange={(e) => updateOutputBinding(output.role.name, e.target.value)}
-                                    placeholder="Resource name or alias..."
+                                    placeholder={`e.g., ${output.role.name}_1`}
                                     className="w-full text-xs border border-gray-300 rounded px-2 py-1"
                                 />
                             </div>
